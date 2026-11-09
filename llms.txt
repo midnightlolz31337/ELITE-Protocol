@@ -1,0 +1,14 @@
+# ELITE Protocol
+
+Purpose: open data contracts for evidence exchange, provenance, and trust boundaries.
+
+Start here:
+- README.md — protocol scope and principles.
+- schemas/observation.schema.json — source-attributed observation envelope.
+- schemas/claim.schema.json — proposition with evidence references and assessment.
+- schemas/review-decision.schema.json — review decision envelope.
+- docs/TRUST_MODEL.md — integrity/authenticity/truth distinctions.
+- docs/INTEROPERABILITY.md — adapter roadmap.
+- AGENTS.md — safe agent guidance.
+
+The current schemas are drafts. They do not implement signatures, authentication, authorization, encryption, chain of custody, or truth verification.
