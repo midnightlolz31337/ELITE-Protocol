@@ -55,11 +55,13 @@
     },
     "observed_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+          "maxLength": 64
     },
     "collected_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+          "maxLength": 64
     },
     "content": {
       "type": "object",
