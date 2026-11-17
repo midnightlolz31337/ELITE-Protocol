@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Mapping, Any
 
@@ -41,19 +42,21 @@ def _bounded_items(items: Iterable[Mapping[str, Any]], kind: str) -> list[Mappin
     return result
 
 
-def _load_schema(kind: str) -> dict:
+@lru_cache(maxsize=len(SCHEMA_FILES))
+def _validator_for(kind: str) -> Draft202012Validator:
+    """Load and compile each immutable bundled schema once per process."""
     try:
         path = SCHEMA_DIR / SCHEMA_FILES[kind]
     except KeyError as exc:
         raise ValueError(f"unknown document kind: {kind}") from exc
-    return json.loads(path.read_text(encoding="utf-8"))
+    schema = json.loads(path.read_text(encoding="utf-8"))
+    return Draft202012Validator(schema, format_checker=FormatChecker())
 
 
 def validate_document(kind: str, document: Mapping[str, Any]) -> None:
     if not isinstance(document, Mapping):
         raise ProtocolValidationError(f"{kind} document must be an object")
-    schema = _load_schema(kind)
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator = _validator_for(kind)
     errors = sorted(validator.iter_errors(document), key=lambda err: tuple(str(part) for part in err.absolute_path))
     if errors:
         details = "; ".join(
