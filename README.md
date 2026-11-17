@@ -16,10 +16,28 @@ Define interoperable envelopes for observations, claims, evidence references, an
 ## Initial artifacts
 - `schemas/observation.schema.json` — normalized source observation.
 - `schemas/claim.schema.json` — proposition with evidence references and uncertainty.
-- `schemas/review-decision.schema.json` — review outcome.
+- `schemas/review-decision.schema.json` — versioned review outcome.
+- `validator.py` — JSON Schema and bundle-level reference validation.
 - `docs/TRUST_MODEL.md` — trust boundaries and non-goals.
 
-## Interoperability
-Designed to interoperate with, not silently replace, [Huffman Protocol](https://github.com/HuffmanMainNode/Huffman-Protocol) and [Open Intelligence Exchange](https://github.com/HuffmanMainNode/Open-Intelligence-Exchange). Compatibility adapters are future work; no conformance is claimed yet.
+## Validation
+Install the runtime validation dependency and run the conformance suite:
 
-Initial specification draft; not a certified standard or production security boundary.
+```bash
+python -m pip install --requirement requirements.txt
+python -m unittest discover -s tests -v
+```
+
+The validator enforces JSON Schema Draft 2020-12, including date-time format checks. Bundle validation additionally requires unique observation, claim, and decision identifiers; each claim evidence reference must resolve to an observation in the supplied bundle; and each review subject must use `observation:<id>` or `claim:<id>` and resolve within that bundle.
+
+Bundle validation is intentionally local to the supplied bundle and accepts at most 10,000 observations, 10,000 claims, and 10,000 review decisions per call. Claim evidence lists are limited to 256 references; observation limitations and claim uncertainty lists are limited to 128 entries each. The validator bounds iterable materialization and rejects non-object records. These are resource-safety ceilings, not throughput guarantees. It does not establish truth, source authenticity, legal authority, cryptographic signature validity, or external-store existence. Callers must provide the complete reference set they intend to validate.
+
+## Interoperability
+Designed to interoperate with, not silently replace, [Huffman Protocol](https://github.com/HuffmanMainNode/Huffman-Protocol) and [Open Intelligence Exchange](https://github.com/HuffmanMainNode/Open-Intelligence-Exchange). Compatibility adapters are future work; no conformance with those external protocols is claimed.
+
+Initial specification draft; not a certified standard or production security boundary. The ingestion prototype currently emits its own import envelope; an explicit, versioned adapter is still required before treating ingestion output as an ELITE Observation.
+
+
+## License
+
+This project is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE). The project code is offered under Apache-2.0; this does not grant trademark rights.

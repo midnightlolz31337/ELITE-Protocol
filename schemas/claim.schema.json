@@ -17,7 +17,8 @@
     },
     "claim_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 256
     },
     "proposition": {
       "type": "string",
@@ -26,9 +27,13 @@
     },
     "evidence_refs": {
       "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "maxItems": 256,
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 256
       }
     },
     "assessment": {
@@ -50,26 +55,32 @@
           ]
         },
         "rationale": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 10000
         },
         "reviewer": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 256
         },
         "reviewed_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "maxLength": 64
         }
       }
     },
     "uncertainties": {
       "type": "array",
+      "maxItems": 128,
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 2000
       }
     },
     "created_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+          "maxLength": 64
     }
   }
 }
