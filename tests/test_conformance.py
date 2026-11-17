@@ -106,6 +106,16 @@ class ProtocolConformanceTests(unittest.TestCase):
                 schema = json.loads((schema_dir / filename).read_text(encoding="utf-8"))
                 Draft202012Validator.check_schema(schema)
 
+    def test_non_iterable_bundle_section_rejected_cleanly(self):
+        with self.assertRaisesRegex(ProtocolValidationError, "must be an iterable"):
+            validate_bundle(None, [])
+
+    def test_observation_source_metadata_is_bounded(self):
+        item = observation()
+        item["source"]["source_id"] = "s" * 257
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
+
 
 if __name__ == "__main__":
     unittest.main()
