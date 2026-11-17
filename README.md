@@ -36,3 +36,8 @@ Bundle validation is intentionally local to the supplied bundle and accepts at m
 Designed to interoperate with, not silently replace, [Huffman Protocol](https://github.com/HuffmanMainNode/Huffman-Protocol) and [Open Intelligence Exchange](https://github.com/HuffmanMainNode/Open-Intelligence-Exchange). Compatibility adapters are future work; no conformance with those external protocols is claimed.
 
 Initial specification draft; not a certified standard or production security boundary. The ingestion prototype currently emits its own import envelope; an explicit, versioned adapter is still required before treating ingestion output as an ELITE Observation.
+
+
+## License
+
+This project is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE). Copyright 2026 LoLz contributors.
