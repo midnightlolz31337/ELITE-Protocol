@@ -20,6 +20,23 @@ class ProtocolValidationError(ValueError):
     """Raised when a protocol document or bundle violates conformance."""
 
 
+MAX_BUNDLE_ITEMS_PER_KIND = 10_000
+
+
+def _bounded_items(items: Iterable[Mapping[str, Any]], kind: str) -> list[Mapping[str, Any]]:
+    """Materialize a bounded bundle section; never consume an unbounded iterator."""
+    result = []
+    for index, item in enumerate(items):
+        if index >= MAX_BUNDLE_ITEMS_PER_KIND:
+            raise ProtocolValidationError(
+                f"{kind} bundle exceeds {MAX_BUNDLE_ITEMS_PER_KIND} item limit"
+            )
+        if not isinstance(item, Mapping):
+            raise ProtocolValidationError(f"{kind} bundle item {index} must be an object")
+        result.append(item)
+    return result
+
+
 def _load_schema(kind: str) -> dict:
     try:
         path = SCHEMA_DIR / SCHEMA_FILES[kind]
@@ -29,6 +46,8 @@ def _load_schema(kind: str) -> dict:
 
 
 def validate_document(kind: str, document: Mapping[str, Any]) -> None:
+    if not isinstance(document, Mapping):
+        raise ProtocolValidationError(f"{kind} document must be an object")
     schema = _load_schema(kind)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     errors = sorted(validator.iter_errors(document), key=lambda err: list(err.absolute_path))
@@ -50,9 +69,9 @@ def validate_bundle(
     Reference syntax is deliberately explicit: observation:<id> or claim:<id>.
     This validates referential integrity, not truth, authenticity, or authorization.
     """
-    observations = list(observations)
-    claims = list(claims)
-    decisions = list(review_decisions)
+    observations = _bounded_items(observations, "observations")
+    claims = _bounded_items(claims, "claims")
+    decisions = _bounded_items(review_decisions, "review_decisions")
 
     observation_ids: set[str] = set()
     claim_ids: set[str] = set()
