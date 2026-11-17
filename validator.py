@@ -50,7 +50,7 @@ def validate_document(kind: str, document: Mapping[str, Any]) -> None:
         raise ProtocolValidationError(f"{kind} document must be an object")
     schema = _load_schema(kind)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
-    errors = sorted(validator.iter_errors(document), key=lambda err: list(err.absolute_path))
+    errors = sorted(validator.iter_errors(document), key=lambda err: tuple(str(part) for part in err.absolute_path))
     if errors:
         details = "; ".join(
             f"{'.'.join(map(str, err.absolute_path)) or '<root>'}: {err.message}"
