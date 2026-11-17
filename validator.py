@@ -26,7 +26,11 @@ MAX_BUNDLE_ITEMS_PER_KIND = 10_000
 def _bounded_items(items: Iterable[Mapping[str, Any]], kind: str) -> list[Mapping[str, Any]]:
     """Materialize a bounded bundle section; never consume an unbounded iterator."""
     result = []
-    for index, item in enumerate(items):
+    try:
+        iterator = iter(items)
+    except TypeError as exc:
+        raise ProtocolValidationError(f"{kind} must be an iterable of objects") from exc
+    for index, item in enumerate(iterator):
         if index >= MAX_BUNDLE_ITEMS_PER_KIND:
             raise ProtocolValidationError(
                 f"{kind} bundle exceeds {MAX_BUNDLE_ITEMS_PER_KIND} item limit"
