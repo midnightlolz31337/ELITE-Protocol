@@ -31,20 +31,25 @@
       "properties": {
         "source_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 256
         },
         "uri": {
           "type": "string",
-          "format": "uri"
+          "format": "uri",
+          "maxLength": 2048
         },
         "publisher": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 256
         },
         "license": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 256
         },
         "authorization_ref": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 512
         }
       }
     },
@@ -65,14 +70,17 @@
       ],
       "properties": {
         "media_type": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         },
         "text": {
           "type": "string",
           "maxLength": 200000
         },
         "language": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 64
         }
       }
     },
@@ -95,8 +103,10 @@
     },
     "limitations": {
       "type": "array",
+      "maxItems": 128,
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 2000
       }
     }
   }
