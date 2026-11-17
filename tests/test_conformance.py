@@ -1,4 +1,9 @@
+import json
 import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from jsonschema import Draft202012Validator
 from validator import ProtocolValidationError, validate_bundle, validate_document
 
 
@@ -66,6 +71,40 @@ class ProtocolConformanceTests(unittest.TestCase):
     def test_duplicate_ids_rejected(self):
         with self.assertRaisesRegex(ProtocolValidationError, "duplicate observation_id"):
             validate_bundle([observation(), observation()], [claim()])
+
+    def test_non_object_document_rejected_cleanly(self):
+        with self.assertRaisesRegex(ProtocolValidationError, "must be an object"):
+            validate_document("observation", ["not", "an", "object"])
+
+    def test_non_object_bundle_item_rejected_cleanly(self):
+        with self.assertRaisesRegex(ProtocolValidationError, "must be an object"):
+            validate_bundle([None], [])
+
+    def test_bundle_materialization_is_bounded(self):
+        def observations():
+            yield observation("obs-1")
+            yield observation("obs-2")
+            yield observation("obs-3")
+
+        with patch("validator.MAX_BUNDLE_ITEMS_PER_KIND", 2):
+            with self.assertRaisesRegex(ProtocolValidationError, "exceeds 2 item limit"):
+                validate_bundle(observations(), [])
+
+    def test_claim_evidence_collection_has_a_schema_limit(self):
+        item = claim([f"obs-{index}" for index in range(257)])
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("claim", item)
+
+    def test_all_schema_documents_are_valid_draft_2020_12(self):
+        schema_dir = Path(__file__).resolve().parents[1] / "schemas"
+        for filename in (
+            "observation.schema.json",
+            "claim.schema.json",
+            "review-decision.schema.json",
+        ):
+            with self.subTest(schema=filename):
+                schema = json.loads((schema_dir / filename).read_text(encoding="utf-8"))
+                Draft202012Validator.check_schema(schema)
 
 
 if __name__ == "__main__":
