@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
-from validator import ProtocolValidationError, validate_bundle, validate_document
+from validator import ProtocolValidationError, _validator_for, validate_bundle, validate_document
 
 
 def observation(identifier="obs-1"):
@@ -115,6 +115,11 @@ class ProtocolConformanceTests(unittest.TestCase):
         item["source"]["source_id"] = "s" * 257
         with self.assertRaises(ProtocolValidationError):
             validate_document("observation", item)
+
+    def test_compiled_schema_validator_is_cached(self):
+        first = _validator_for("observation")
+        second = _validator_for("observation")
+        self.assertIs(first, second)
 
 
 if __name__ == "__main__":
