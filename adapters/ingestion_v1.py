@@ -303,8 +303,8 @@ def export_current_generation(
             delete=False,
         ) as handle:
             temporary = Path(handle.name)
-            for observation in iter_current_generation(
-                pointer,
+            for observation in iter_accepted_jsonl(
+                accepted_path,
                 source_uri=source_uri,
                 collected_at=collected_at,
                 observed_at=observed_at,
