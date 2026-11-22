@@ -1,6 +1,7 @@
 """JSON Schema and cross-record validation for ELITE protocol bundles."""
 from __future__ import annotations
 
+import hashlib
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -64,6 +65,14 @@ def validate_document(kind: str, document: Mapping[str, Any]) -> None:
             for err in errors
         )
         raise ProtocolValidationError(f"{kind} is not conformant: {details}")
+    if kind == "observation":
+        text_content = document["content"]["text"]
+        actual_digest = hashlib.sha256(text_content.encode("utf-8")).hexdigest()
+        expected_digest = document["integrity"]["digest"]
+        if actual_digest != expected_digest:
+            raise ProtocolValidationError(
+                "observation integrity digest mismatch for scope content.text.utf8"
+            )
 
 
 def validate_bundle(
