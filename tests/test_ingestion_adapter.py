@@ -11,6 +11,7 @@ from adapters.ingestion_v1 import (
     IngestionAdapterError,
     iter_accepted_jsonl,
     iter_current_generation,
+    export_current_generation,
     observation_from_envelope,
 )
 
@@ -268,6 +269,76 @@ class IngestionAdapterTests(unittest.TestCase):
             pointer.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(IngestionAdapterError, "record count mismatch"):
                 list(iter_current_generation(pointer, **self.kwargs()))
+
+
+    def _write_current_fixture(self, root, item):
+        generation_id = "12345678-1234-5678-1234-567812345678"
+        generation = root / "generations" / generation_id
+        generation.mkdir(parents=True)
+        accepted = (json.dumps(item) + "\n").encode()
+        quarantine = b""
+        (generation / "accepted.jsonl").write_bytes(accepted)
+        (generation / "quarantine.jsonl").write_bytes(quarantine)
+        manifest = {
+            "schema_version": "1", "generation_id": generation_id,
+            "generation_path": f"generations/{generation_id}",
+            "created_at": "2026-11-22T12:30:00Z", "accepted_count": 1,
+            "quarantine_count": 0,
+            "files": {
+                name: {
+                    "path": f"generations/{generation_id}/{name}",
+                    "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                }
+                for name, data in (("accepted.jsonl", accepted), ("quarantine.jsonl", quarantine))
+            },
+        }
+        pointer = root / "CURRENT.json"
+        pointer.write_text(json.dumps(manifest))
+        return pointer, generation
+
+    def test_export_current_generation_is_deterministic_jsonl(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, _ = self._write_current_fixture(root, envelope())
+            output = root / "export" / "observations.jsonl"
+            options = {
+                "source_uri": "https://example.org/archive/item",
+                "collected_at": "2026-11-22T12:30:00Z",
+                "observed_at": "2026-11-22T12:00:00Z",
+            }
+            self.assertEqual(export_current_generation(pointer, output, **options), 1)
+            first = output.read_bytes()
+            self.assertTrue(first.endswith(b"\n"))
+            self.assertEqual(export_current_generation(pointer, output, **options), 1)
+            self.assertEqual(output.read_bytes(), first)
+            exported = json.loads(first.decode("utf-8"))
+            self.assertEqual(exported["content"]["text"], "Captured text")
+            self.assertEqual(exported["ingestion"]["source_format"], "jsonl")
+
+    def test_export_failure_preserves_previous_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            item = envelope()
+            pointer, _ = self._write_current_fixture(root, item)
+            output = root / "observations.jsonl"
+            output.write_bytes(b"previous committed export\n")
+            with self.assertRaisesRegex(IngestionAdapterError, "observed_at is absent"):
+                export_current_generation(
+                    pointer, output,
+                    source_uri="https://example.org/archive/item",
+                    collected_at="2026-11-22T12:30:00Z",
+                )
+            self.assertEqual(output.read_bytes(), b"previous committed export\n")
+            self.assertEqual(list(root.glob(".elite-observation-export-*.tmp")), [])
+
+    def test_export_refuses_destination_inside_source_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, generation = self._write_current_fixture(root, envelope())
+            with self.assertRaisesRegex(IngestionAdapterError, "outside the current generation"):
+                export_current_generation(
+                    pointer, generation / "converted.jsonl", **self.kwargs()
+                )
 
 
 if __name__ == "__main__":
