@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 import uuid
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
@@ -254,3 +256,77 @@ def iter_accepted_jsonl(
                 media_type=media_type,
                 language=language,
             )
+
+
+
+def export_current_generation(
+    pointer_path: str | Path,
+    output_path: str | Path,
+    *,
+    source_uri: str,
+    collected_at: str,
+    observed_at: str | None = None,
+    media_type: str = "text/plain",
+    language: str | None = None,
+) -> int:
+    """Atomically export validated observations as deterministic JSONL.
+
+    The temporary file is created beside the destination and replaces it only
+    after the entire accepted stream has converted successfully.
+    """
+    pointer = Path(pointer_path)
+    accepted_path = accepted_jsonl_from_current(pointer)
+    generation_dir = accepted_path.parent.resolve()
+    destination = Path(output_path)
+    if destination.is_symlink():
+        raise IngestionAdapterError("export destination must not be a symlink")
+    destination = destination.resolve()
+    reserved = {
+        pointer.resolve(),
+        accepted_path.resolve(),
+        (generation_dir / "quarantine.jsonl").resolve(),
+    }
+    if destination in reserved or destination.parent == generation_dir or generation_dir in destination.parents:
+        raise IngestionAdapterError("export destination must be outside the current generation")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    temporary: Path | None = None
+    count = 0
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\\n",
+            dir=destination.parent,
+            prefix=".elite-observation-export-",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            for observation in iter_current_generation(
+                pointer,
+                source_uri=source_uri,
+                collected_at=collected_at,
+                observed_at=observed_at,
+                media_type=media_type,
+                language=language,
+            ):
+                handle.write(json.dumps(
+                    observation,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ))
+                handle.write("\\n")
+                count += 1
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+    return count
