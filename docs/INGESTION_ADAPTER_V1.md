@@ -10,9 +10,10 @@ The adapter reads the Ingestion Core `accepted.jsonl` output as a stream and emi
 
 The caller must supply:
 - the source URI (the ingestion envelope contains a source ID, not a canonical URI);
-- the collection timestamp;
-- the source format recorded by Ingestion Core in each envelope (the adapter does not accept a caller override); and
+- the collection timestamp; and
 - an observed-at timestamp when the source record does not contain an explicit one.
+
+The source format is recorded by Ingestion Core in each envelope. The adapter derives the digest scope from that field and does not accept a caller override.
 
 No timestamp, URI, publisher, license, or authorization is fabricated. The source URI is attribution metadata, not proof of ownership or authenticity.
 
@@ -43,7 +44,7 @@ The Observation retains source ID and caller-supplied URI, observation and colle
 ```python
 from adapters.ingestion_v1 import iter_current_generation
 
-for observation in iter_accepted_jsonl(
+for observation in iter_current_generation(
     "output/CURRENT.json",
     source_uri="https://example.org/source",
     collected_at="2026-11-22T12:30:00Z",
