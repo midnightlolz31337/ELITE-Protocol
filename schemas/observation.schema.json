@@ -156,8 +156,8 @@
             },
             "scope": {
               "enum": [
-                "ingestion.jsonl.line.bytes",
-                "ingestion.csv.normalized_row.utf8"
+                "jsonl.raw_line.bytes",
+                "csv.parsed_row.canonical_json.utf8"
               ]
             },
             "digest": {
@@ -168,7 +168,8 @@
               "type": "integer",
               "minimum": 0
             }
-          }
+          },
+          "description": "Digest of the Ingestion Core record representation. JSONL covers exact physical line bytes; CSV covers the canonical JSON array of parsed row fields. Neither is a whole-source-file digest."
         },
         "source_format": {
           "enum": [
