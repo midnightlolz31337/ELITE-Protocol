@@ -211,6 +211,15 @@ class IngestionAdapterTests(unittest.TestCase):
             self.assertEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source_bytes).hexdigest())
             self.assertEqual(item["ingestion"]["record_digest"]["size_bytes"], len(source_bytes))
             self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.jsonl.line.bytes")
+            exported_path = root / "observations.jsonl"
+            self.assertEqual(export_current_generation(
+                output / "CURRENT.json", exported_path,
+                source_uri="https://example.org/integration/jsonl",
+                collected_at="2026-11-22T12:30:00Z",
+                observed_at="2026-11-22T12:00:00Z",
+            ), 1)
+            exported = json.loads(exported_path.read_text(encoding="utf-8"))
+            self.assertEqual(exported["content"]["text"], "Cross-repository JSONL evidence")
 
     @unittest.skipUnless(os.environ.get("ELITE_INGESTION_CORE_PATH"), "requires pinned Ingestion Core checkout")
     def test_real_ingestion_core_csv_output_labels_normalized_row_digest(self):
@@ -240,6 +249,16 @@ class IngestionAdapterTests(unittest.TestCase):
             self.assertEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(expected_row).hexdigest())
             self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.csv.normalized_row.utf8")
             self.assertNotEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source.read_bytes()).hexdigest())
+            exported_path = root / "observations.csv-source.jsonl"
+            self.assertEqual(export_current_generation(
+                output / "CURRENT.json", exported_path,
+                source_uri="https://example.org/integration/csv",
+                collected_at="2026-11-22T12:30:00Z",
+                observed_at="2026-11-22T12:00:00Z",
+            ), 1)
+            exported = json.loads(exported_path.read_text(encoding="utf-8"))
+            self.assertEqual(exported["content"]["text"], "CSV generated evidence")
+            self.assertEqual(exported["ingestion"]["record_digest"]["scope"], "ingestion.csv.normalized_row.utf8")
 
 
     def test_current_pointer_rejects_record_count_mismatch(self):
