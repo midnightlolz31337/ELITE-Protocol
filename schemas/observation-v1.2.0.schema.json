@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ELITE Observation 1.2.0",
+  "description": "A source-attributed observation with explicit ingestion provenance; not itself a verified claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "source",
+    "observed_at",
+    "content",
+    "integrity",
+    "collected_at",
+    "ingestion_provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.2.0"
+    },
+    "observation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "uri"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "publisher": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "license": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "authorization_ref": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 64
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 64,
+      "description": "Time the ingestion generation was committed or collection event completed. This is distinct from observed_at, which must represent the source's observation time."
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "media_type",
+        "text"
+      ],
+      "properties": {
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "scope",
+        "digest"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "sha-256"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scope": {
+          "const": "content.text.utf8"
+        }
+      },
+      "description": "SHA-256 digest of the exact UTF-8 bytes of content.text after JSON decoding; not the original serialized source-file bytes."
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 2000
+      }
+    },
+    "ingestion_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "component_version",
+        "adapter_version",
+        "import_id",
+        "record_id",
+        "source_record",
+        "source_format",
+        "record_representation",
+        "source_registry_revision"
+      ],
+      "properties": {
+        "component": {
+          "const": "elite-ingestion-core"
+        },
+        "component_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "adapter_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "import_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_record": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Source line number reported by the ingestion parser. For a multiline CSV record this is the physical line on which the parsed record ends, not a logical row ordinal."
+        },
+        "source_format": {
+          "enum": [
+            "jsonl",
+            "csv"
+          ]
+        },
+        "record_representation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "scope",
+            "digest",
+            "size_bytes"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "sha-256"
+            },
+            "scope": {
+              "enum": [
+                "jsonl.raw_line.bytes",
+                "csv.parsed_row.canonical_json.utf8"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Digest of the Ingestion Core record representation only. jsonl.raw_line.bytes covers the exact JSONL physical line bytes; csv.parsed_row.canonical_json.utf8 covers the canonical JSON array of parsed CSV fields. Neither scope is a digest of the complete original source file."
+        },
+        "source_registry_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Immutable version or content digest identifying the source registry used to resolve source URI and media-type policy."
+        },
+        "policy_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}

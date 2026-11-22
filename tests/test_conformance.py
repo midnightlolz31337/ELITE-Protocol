@@ -23,6 +23,31 @@ def observation(identifier="obs-1"):
     }
 
 
+
+def observation_v12(identifier="obs-1"):
+    item = observation(identifier)
+    item["schema_version"] = "1.2.0"
+    item["collected_at"] = "2026-11-17T12:01:00Z"
+    representation = b'{"content":"Observed text"}\n'
+    item["ingestion_provenance"] = {
+        "component": "elite-ingestion-core",
+        "component_version": "0.2.0",
+        "adapter_version": "0.1.0",
+        "import_id": "import-1",
+        "record_id": "import-1:1",
+        "source_record": 1,
+        "source_format": "jsonl",
+        "record_representation": {
+            "algorithm": "sha-256",
+            "scope": "jsonl.raw_line.bytes",
+            "digest": hashlib.sha256(representation).hexdigest(),
+            "size_bytes": len(representation),
+        },
+        "source_registry_revision": "registry-sha256:abc123",
+    }
+    return item
+
+
 def claim(refs=None):
     return {
         "schema_version": "1.0.0",
@@ -50,6 +75,10 @@ class ProtocolConformanceTests(unittest.TestCase):
         validate_bundle([observation()], [claim()], [decision()])
 
 
+
+    def test_v1_2_observation_works_in_referential_bundle_validation(self):
+        validate_bundle([observation_v12()], [claim()], [decision()])
+
     def test_observation_digest_mismatch_rejected(self):
         item = observation()
         item["integrity"]["digest"] = "a" * 64
@@ -72,6 +101,56 @@ class ProtocolConformanceTests(unittest.TestCase):
         item = observation()
         item["integrity"]["scope"] = "whole-source-file"
         with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
+
+
+    def test_valid_observation_v1_2_with_ingestion_provenance(self):
+        validate_document("observation", observation_v12())
+
+    def test_observation_v1_2_requires_ingestion_provenance(self):
+        item = observation_v12()
+        del item["ingestion_provenance"]
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
+
+    def test_observation_v1_2_requires_collected_at(self):
+        item = observation_v12()
+        del item["collected_at"]
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
+
+    def test_observation_v1_2_rejects_unknown_representation_scope(self):
+        item = observation_v12()
+        item["ingestion_provenance"]["record_representation"]["scope"] = "whole-file"
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
+
+    def test_observation_v1_2_keeps_representation_and_text_digests_distinct(self):
+        item = observation_v12()
+        representation_digest = item["ingestion_provenance"]["record_representation"]["digest"]
+        text_digest = item["integrity"]["digest"]
+        self.assertNotEqual(representation_digest, text_digest)
+        validate_document("observation", item)
+
+
+
+    def test_observation_v1_2_accepts_csv_representation_scope(self):
+        item = observation_v12()
+        provenance = item["ingestion_provenance"]
+        provenance["source_format"] = "csv"
+        provenance["record_representation"]["scope"] = "csv.parsed_row.canonical_json.utf8"
+        validate_document("observation", item)
+
+    def test_observation_v1_2_representation_scope_must_match_source_format(self):
+        item = observation_v12()
+        item["ingestion_provenance"]["source_format"] = "csv"
+        with self.assertRaisesRegex(ProtocolValidationError, "does not match source_format"):
+            validate_document("observation", item)
+
+    def test_unknown_observation_schema_version_rejected(self):
+        item = observation()
+        item["schema_version"] = "9.9.9"
+        with self.assertRaisesRegex(ProtocolValidationError, "unsupported observation schema version"):
             validate_document("observation", item)
 
     def test_review_decision_requires_schema_version(self):
@@ -129,6 +208,7 @@ class ProtocolConformanceTests(unittest.TestCase):
         schema_dir = Path(__file__).resolve().parents[1] / "schemas"
         for filename in (
             "observation.schema.json",
+            "observation-v1.2.0.schema.json",
             "claim.schema.json",
             "review-decision.schema.json",
         ):
