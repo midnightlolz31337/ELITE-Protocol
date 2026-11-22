@@ -174,7 +174,7 @@ class IngestionAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "source.jsonl"
-            source_bytes = b'{"content":"Cross-repository JSONL evidence"}\\n'
+            source_bytes = b'{"content":"Cross-repository JSONL evidence"}\n'
             source.write_bytes(source_bytes)
             output = root / "output"
             subprocess.run(
@@ -205,7 +205,7 @@ class IngestionAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "source.csv"
-            source.write_text("content\\nCSV generated evidence\\n", encoding="utf-8")
+            source.write_text("content\nCSV generated evidence\n", encoding="utf-8")
             output = root / "output"
             subprocess.run(
                 [
