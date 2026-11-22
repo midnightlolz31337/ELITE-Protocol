@@ -157,6 +157,10 @@ def _unique_json_object(pairs):
     return result
 
 
+def _reject_json_constant(value: str):
+    raise IngestionAdapterError(f"non-standard JSON constant is not permitted: {value}")
+
+
 def _verified_current_generation(pointer_path: str | Path) -> tuple[dict[str, Any], Path]:
     try:
         return read_current_generation(Path(pointer_path))
@@ -226,14 +230,14 @@ def iter_accepted_jsonl(
             raise IngestionAdapterError(f"blank line in accepted envelope stream at line {line_number}")
         try:
             line = raw_line.decode("utf-8")
-            envelope = json.loads(line, object_pairs_hook=_unique_json_object)
+            envelope = json.loads(line, object_pairs_hook=_unique_json_object, parse_constant=_reject_json_constant)
         except UnicodeDecodeError as exc:
             raise IngestionAdapterError(
                 f"invalid UTF-8 in accepted envelope stream at line {line_number}"
             ) from exc
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, RecursionError) as exc:
             raise IngestionAdapterError(
-                f"invalid JSON in accepted envelope stream at line {line_number}"
+                f"invalid or excessively nested JSON in accepted envelope stream at line {line_number}"
             ) from exc
         if not isinstance(envelope, Mapping):
             raise IngestionAdapterError(
