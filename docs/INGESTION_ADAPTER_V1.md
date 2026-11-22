@@ -6,7 +6,7 @@ Experimental interoperability adapter. It targets the ELITE Observation schema 1
 
 ## Conversion contract
 
-The adapter reads the Ingestion Core `accepted.jsonl` output as a stream and emits one validated ELITE Observation 1.1.0 per accepted envelope. It fails closed on malformed lines, non-accepted decisions, missing provenance, unsupported content shapes, invalid digests, or incomplete timestamps. Quarantine files are not accepted as input.
+The adapter reads the Ingestion Core `accepted.jsonl` output as a stream and emits one validated ELITE Observation 1.1.0 per accepted envelope. It delegates CURRENT pointer and generation-file verification to Ingestion Core's public `read_current_generation` API, then checks that each envelope's `import_id` matches the committed generation and that `record_id` binds that import ID to `source_record`. It fails closed on malformed lines, duplicate JSON keys, non-accepted decisions, missing provenance, unsupported content shapes, invalid digests, scope/format mismatches, or incomplete timestamps. Quarantine files are not accepted as input.
 
 The caller must supply:
 - the source URI (the ingestion envelope contains a source ID, not a canonical URI);
