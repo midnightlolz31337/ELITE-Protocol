@@ -58,6 +58,6 @@ The adapter verifies the `CURRENT.json` manifest, both generation files, their s
 
 ## Cross-repository verification
 
-Protocol CI checks out ELITE Ingestion Core PR #2 at the exact reviewed source revision `ffcd1be8ecbbf2c4e2b4c5985519bb7d8d8271d3`. The adapter test suite invokes its real CLI to create a committed generation from synthetic JSONL and CSV inputs, then resolves the resulting `CURRENT.json` through the adapter.
+Protocol CI checks out ELITE Ingestion Core PR #2 at the exact reviewed source revision `ad2fd7d7886af3486e288d31a805ae0f68173177`. The adapter test suite invokes its real CLI to create a committed generation from synthetic JSONL and CSV inputs, then resolves the resulting `CURRENT.json` through the adapter.
 
 The JSONL integration test verifies the ingestion digest against exact source line bytes. The CSV integration test verifies the digest against the normalized row representation emitted by Ingestion Core and explicitly checks that it is not mislabeled as the original CSV file digest. This is a pinned cross-repository integration fixture, not a moving dependency on the default branch.
