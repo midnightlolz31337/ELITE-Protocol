@@ -76,6 +76,19 @@ class IngestionAdapterTests(unittest.TestCase):
         )
         self.assertTrue(any("canonical JSON array" in value for value in item["limitations"]))
 
+
+    def test_missing_record_representation_scope_fails_closed(self):
+        item = envelope()
+        del item["record_representation_scope"]
+        with self.assertRaisesRegex(IngestionAdapterError, "scope does not match source_format"):
+            observation_from_envelope(item, **self.kwargs())
+
+    def test_record_id_must_bind_import_id_and_source_record(self):
+        item = envelope()
+        item["record_id"] = "unrelated-record-id"
+        with self.assertRaisesRegex(IngestionAdapterError, "record_id does not match"):
+            observation_from_envelope(item, **self.kwargs())
+
     def test_quarantined_envelope_never_becomes_observation(self):
         with self.assertRaisesRegex(IngestionAdapterError, "only accepted"):
             observation_from_envelope(envelope(decision="quarantine"), **self.kwargs())
