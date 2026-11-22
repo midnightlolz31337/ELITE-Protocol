@@ -201,11 +201,21 @@ def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
         if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
             raise IngestionAdapterError(f"CURRENT.json SHA-256 for {name} is invalid")
         actual_hash = hashlib.sha256()
+        actual_count = 0
+        last_byte = None
         with file_path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(64 * 1024), b""):
                 actual_hash.update(chunk)
+                actual_count += chunk.count(b"\\n")
+                if chunk:
+                    last_byte = chunk[-1]
         if file_path.stat().st_size != size or actual_hash.hexdigest() != digest:
             raise IngestionAdapterError(f"current generation integrity check failed: {name}")
+        if size and last_byte != 10:
+            raise IngestionAdapterError(f"current generation file is not newline-terminated: {name}")
+        expected_count = manifest["accepted_count" if name == "accepted.jsonl" else "quarantine_count"]
+        if actual_count != expected_count:
+            raise IngestionAdapterError(f"current generation record count mismatch: {name}")
     return resolved_generation / "accepted.jsonl"
 
 
