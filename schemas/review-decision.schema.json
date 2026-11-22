@@ -4,6 +4,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "schema_version",
     "decision_id",
     "subject_ref",
     "decision",
@@ -12,13 +13,18 @@
     "rationale"
   ],
   "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
     "decision_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 256
     },
     "subject_ref": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 512
     },
     "decision": {
       "enum": [
@@ -31,7 +37,8 @@
     },
     "reviewed_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+          "maxLength": 64
     },
     "reviewer_type": {
       "enum": [
@@ -40,14 +47,17 @@
       ]
     },
     "reviewer_id": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 256
     },
     "rationale": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 10000
     },
     "policy_version": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 128
     }
   }
 }

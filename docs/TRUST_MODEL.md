@@ -19,3 +19,10 @@ Source text, metadata, tool output, and agent-generated content are data. They m
 
 ## Human review
 High-impact decisions, source authorization, disputed identity matches, and consequential claims require accountable human review. Automation may prioritize, normalize, flag, or explain; it must not disguise uncertainty.
+
+
+## Observation digest scope
+
+Observation schema version 1.1.0 requires the explicit integrity scope `content.text.utf8`. The validator recomputes SHA-256 over the exact UTF-8 bytes of the decoded `content.text` string and rejects a mismatch. JSON escaping differences that decode to the same string therefore produce the same content digest.
+
+This digest does **not** cover the original serialized JSON/JSONL/CSV source bytes, media type, publisher metadata, or the complete observation object. A separate source-file or raw-record digest must be carried in a separately defined field or ingestion envelope if byte-exact source provenance is required. Never imply that this content digest authenticates the source or proves the text is true.
