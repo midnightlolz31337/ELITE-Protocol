@@ -106,7 +106,7 @@ class IngestionAdapterTests(unittest.TestCase):
             generation_id = "12345678-1234-5678-1234-567812345678"
             generation = root / "generations" / generation_id
             generation.mkdir(parents=True)
-            accepted = (json.dumps(envelope()) + "\\n").encode()
+            accepted = (json.dumps(envelope()) + "\n").encode()
             quarantine = b""
             (generation / "accepted.jsonl").write_bytes(accepted)
             (generation / "quarantine.jsonl").write_bytes(quarantine)
@@ -142,7 +142,7 @@ class IngestionAdapterTests(unittest.TestCase):
             generation_id = "12345678-1234-5678-1234-567812345678"
             generation = root / "generations" / generation_id
             generation.mkdir(parents=True)
-            accepted = (json.dumps(envelope()) + "\\n").encode()
+            accepted = (json.dumps(envelope()) + "\n").encode()
             (generation / "accepted.jsonl").write_bytes(accepted)
             (generation / "quarantine.jsonl").write_bytes(b"")
             manifest = {
