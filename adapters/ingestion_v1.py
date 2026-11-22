@@ -215,9 +215,9 @@ def iter_accepted_jsonl(
         raise IngestionAdapterError("accepted envelope stream size changed after CURRENT validation")
     if expected_digest is not None and hashlib.sha256(data).hexdigest() != expected_digest:
         raise IngestionAdapterError("accepted envelope stream digest changed after CURRENT validation")
-    if data and not data.endswith(b"\\n"):
+    if data and not data.endswith(b"\n"):
         raise IngestionAdapterError("accepted envelope stream is not newline-terminated")
-    line_count = data.count(b"\\n")
+    line_count = data.count(b"\n")
     if expected_count is not None and line_count != expected_count:
         raise IngestionAdapterError("accepted envelope stream count changed after CURRENT validation")
 
