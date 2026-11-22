@@ -53,7 +53,7 @@ for observation in iter_accepted_jsonl(
     print(observation)
 ```
 
-The adapter verifies the `CURRENT.json` manifest, both generation files, their sizes and SHA-256 digests, and rejects symlinked paths before reading the accepted stream.
+The adapter verifies the `CURRENT.json` manifest, both generation files, their sizes, SHA-256 digests, newline termination, and manifest record counts, and rejects symlinked paths before reading the accepted stream.
 
 
 ## Cross-repository verification
