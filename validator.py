@@ -12,9 +12,12 @@ from jsonschema import Draft202012Validator, FormatChecker
 ROOT = Path(__file__).resolve().parent
 SCHEMA_DIR = ROOT / "schemas"
 SCHEMA_FILES = {
-    "observation": "observation.schema.json",
     "claim": "claim.schema.json",
     "review_decision": "review-decision.schema.json",
+}
+OBSERVATION_SCHEMA_FILES = {
+    "1.1.0": "observation.schema.json",
+    "1.2.0": "observation-v1.2.0.schema.json",
 }
 
 
@@ -43,13 +46,21 @@ def _bounded_items(items: Iterable[Mapping[str, Any]], kind: str) -> list[Mappin
     return result
 
 
-@lru_cache(maxsize=len(SCHEMA_FILES))
-def _validator_for(kind: str) -> Draft202012Validator:
+@lru_cache(maxsize=len(SCHEMA_FILES) + len(OBSERVATION_SCHEMA_FILES))
+def _validator_for(kind: str, schema_version: str | None = None) -> Draft202012Validator:
     """Load and compile each immutable bundled schema once per process."""
-    try:
-        path = SCHEMA_DIR / SCHEMA_FILES[kind]
-    except KeyError as exc:
-        raise ValueError(f"unknown document kind: {kind}") from exc
+    if kind == "observation":
+        version = schema_version or "1.1.0"
+        try:
+            filename = OBSERVATION_SCHEMA_FILES[version]
+        except KeyError as exc:
+            raise ValueError(f"unsupported observation schema version: {version}") from exc
+    else:
+        try:
+            filename = SCHEMA_FILES[kind]
+        except KeyError as exc:
+            raise ValueError(f"unknown document kind: {kind}") from exc
+    path = SCHEMA_DIR / filename
     schema = json.loads(path.read_text(encoding="utf-8"))
     return Draft202012Validator(schema, format_checker=FormatChecker())
 
@@ -57,7 +68,15 @@ def _validator_for(kind: str) -> Draft202012Validator:
 def validate_document(kind: str, document: Mapping[str, Any]) -> None:
     if not isinstance(document, Mapping):
         raise ProtocolValidationError(f"{kind} document must be an object")
-    validator = _validator_for(kind)
+    schema_version = None
+    if kind == "observation":
+        schema_version = document.get("schema_version")
+        if not isinstance(schema_version, str):
+            raise ProtocolValidationError("observation schema_version must be a string")
+    try:
+        validator = _validator_for(kind, schema_version)
+    except ValueError as exc:
+        raise ProtocolValidationError(str(exc)) from exc
     errors = sorted(validator.iter_errors(document), key=lambda err: tuple(str(part) for part in err.absolute_path))
     if errors:
         details = "; ".join(
