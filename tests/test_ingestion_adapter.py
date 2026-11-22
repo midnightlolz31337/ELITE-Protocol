@@ -162,10 +162,10 @@ class IngestionAdapterTests(unittest.TestCase):
     def test_accepted_stream_is_rehashed_before_any_observation_is_yielded(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "accepted.jsonl"
-            original = (json.dumps(envelope()) + "\\n").encode()
+            original = (json.dumps(envelope()) + "\n").encode()
             path.write_bytes(original)
             expected_digest = hashlib.sha256(original).hexdigest()
-            path.write_bytes((json.dumps(envelope(content="Changed")) + "\\n").encode())
+            path.write_bytes((json.dumps(envelope(content="Changed")) + "\n").encode())
             with self.assertRaisesRegex(IngestionAdapterError, "digest changed"):
                 list(iter_accepted_jsonl(
                     path,
