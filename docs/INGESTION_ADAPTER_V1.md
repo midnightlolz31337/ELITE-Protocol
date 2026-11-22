@@ -34,6 +34,7 @@ The Observation retains source ID and caller-supplied URI, observation and colle
 
 - Does not ingest quarantine output.
 - Does not reconstruct original CSV bytes.
+- JSONL export uses same-directory atomic replacement and fsyncs the completed file; parent-directory durability after sudden power loss is platform/filesystem dependent and is not claimed.
 - Does not authenticate sources or operators, verify signatures, establish legal rights, or enforce source policy.
 - Does not infer publisher, license, language, or observation time.
 - Does not turn content into claims or assessments.
@@ -42,15 +43,16 @@ The Observation retains source ID and caller-supplied URI, observation and colle
 ## Example
 
 ```python
-from adapters.ingestion_v1 import iter_current_generation
+from adapters.ingestion_v1 import export_current_generation
 
-for observation in iter_current_generation(
+count = export_current_generation(
     "output/CURRENT.json",
+    "output/observations.jsonl",
     source_uri="https://example.org/source",
     collected_at="2026-11-22T12:30:00Z",
     observed_at="2026-11-22T12:00:00Z",
-):
-    print(observation)
+)
+print(f"exported {count} observations")
 ```
 
 The adapter verifies the `CURRENT.json` manifest, both generation files, their sizes, SHA-256 digests, newline termination, and manifest record counts, and rejects symlinked paths before reading the accepted stream.
