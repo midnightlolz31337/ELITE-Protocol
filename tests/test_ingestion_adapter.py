@@ -150,9 +150,7 @@ class IngestionAdapterTests(unittest.TestCase):
             item = envelope()
             item["import_id"] = generation_id
             item["record_id"] = f"{generation_id}:{item['source_record']}"
-            item["import_id"] = generation_id
-        item["record_id"] = f"{generation_id}:{item['source_record']}"
-        accepted = (json.dumps(item) + "\n").encode()
+            accepted = (json.dumps(item) + "\n").encode()
             quarantine = b""
             (generation / "accepted.jsonl").write_bytes(accepted)
             (generation / "quarantine.jsonl").write_bytes(quarantine)
@@ -329,6 +327,8 @@ class IngestionAdapterTests(unittest.TestCase):
         generation_id = "12345678-1234-5678-1234-567812345678"
         generation = root / "generations" / generation_id
         generation.mkdir(parents=True)
+        item["import_id"] = generation_id
+        item["record_id"] = f"{generation_id}:{item['source_record']}"
         accepted = (json.dumps(item) + "\n").encode()
         quarantine = b""
         (generation / "accepted.jsonl").write_bytes(accepted)
