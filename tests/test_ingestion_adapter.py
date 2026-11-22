@@ -31,7 +31,7 @@ def envelope(*, content="Captured text", decision="accepted", source_format="jso
 
 
 class IngestionAdapterTests(unittest.TestCase):
-    def kwargs(self, source_format="jsonl"):
+    def kwargs(self):
         return {
             "source_uri": "https://example.org/archive/item",
             "collected_at": "2026-11-22T12:30:00Z",
@@ -46,6 +46,7 @@ class IngestionAdapterTests(unittest.TestCase):
         self.assertEqual(item["source"]["uri"], "https://example.org/archive/item")
         self.assertEqual(item["ingestion"]["import_id"], "import-123")
         self.assertEqual(item["ingestion"]["source_record_line"], 4)
+        self.assertEqual(item["ingestion"]["source_format"], "jsonl")
         self.assertEqual(item["integrity"]["scope"], "content.text.utf8")
         self.assertEqual(item["integrity"]["digest"], hashlib.sha256(b"Captured text").hexdigest())
 
