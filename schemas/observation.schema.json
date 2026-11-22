@@ -122,6 +122,7 @@
       "required": [
         "import_id",
         "record_id",
+        "source_format",
         "source_record_line",
         "record_digest"
       ],
@@ -168,6 +169,12 @@
               "minimum": 0
             }
           }
+        },
+        "source_format": {
+          "enum": [
+            "jsonl",
+            "csv"
+          ]
         }
       },
       "description": "Digest metadata from the originating Ingestion Core envelope; distinct from integrity.digest over decoded Observation content.text."
