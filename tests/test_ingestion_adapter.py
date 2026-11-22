@@ -1,4 +1,7 @@
 import hashlib
+import os
+import subprocess
+import sys
 import json
 import tempfile
 import unittest
@@ -163,6 +166,68 @@ class IngestionAdapterTests(unittest.TestCase):
             (generation / "accepted.jsonl").write_text("tampered")
             with self.assertRaisesRegex(IngestionAdapterError, "integrity check failed"):
                 list(iter_current_generation(pointer, **self.kwargs()))
+
+
+    @unittest.skipUnless(os.environ.get("ELITE_INGESTION_CORE_PATH"), "requires pinned Ingestion Core checkout")
+    def test_real_ingestion_core_jsonl_output_round_trips_through_adapter(self):
+        core_path = Path(os.environ["ELITE_INGESTION_CORE_PATH"]).resolve()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.jsonl"
+            source_bytes = b'{"content":"Cross-repository JSONL evidence"}\\n'
+            source.write_bytes(source_bytes)
+            output = root / "output"
+            subprocess.run(
+                [
+                    sys.executable, "-m", "elite_ingestion.cli", "ingest",
+                    str(source), "--source-id", "integration-source",
+                    "--operator-asserts-authorized", "--output-dir", str(output),
+                ],
+                cwd=core_path, check=True, capture_output=True, text=True,
+            )
+            observations = list(iter_current_generation(
+                output / "CURRENT.json",
+                source_uri="https://example.org/integration/jsonl",
+                collected_at="2026-11-22T12:30:00Z",
+                observed_at="2026-11-22T12:00:00Z",
+                source_format="jsonl",
+            ))
+            self.assertEqual(len(observations), 1)
+            item = observations[0]
+            self.assertEqual(item["content"]["text"], "Cross-repository JSONL evidence")
+            self.assertEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source_bytes).hexdigest())
+            self.assertEqual(item["ingestion"]["record_digest"]["size_bytes"], len(source_bytes))
+            self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.jsonl.line.bytes")
+
+    @unittest.skipUnless(os.environ.get("ELITE_INGESTION_CORE_PATH"), "requires pinned Ingestion Core checkout")
+    def test_real_ingestion_core_csv_output_labels_normalized_row_digest(self):
+        core_path = Path(os.environ["ELITE_INGESTION_CORE_PATH"]).resolve()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.csv"
+            source.write_text("content\\nCSV generated evidence\\n", encoding="utf-8")
+            output = root / "output"
+            subprocess.run(
+                [
+                    sys.executable, "-m", "elite_ingestion.cli", "ingest",
+                    str(source), "--source-id", "integration-source",
+                    "--operator-asserts-authorized", "--output-dir", str(output),
+                ],
+                cwd=core_path, check=True, capture_output=True, text=True,
+            )
+            observations = list(iter_current_generation(
+                output / "CURRENT.json",
+                source_uri="https://example.org/integration/csv",
+                collected_at="2026-11-22T12:30:00Z",
+                observed_at="2026-11-22T12:00:00Z",
+                source_format="csv",
+            ))
+            self.assertEqual(len(observations), 1)
+            item = observations[0]
+            expected_row = b'["CSV generated evidence"]'
+            self.assertEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(expected_row).hexdigest())
+            self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.csv.normalized_row.utf8")
+            self.assertNotEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source.read_bytes()).hexdigest())
 
 
 if __name__ == "__main__":
