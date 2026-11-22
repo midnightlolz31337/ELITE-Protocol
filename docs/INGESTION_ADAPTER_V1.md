@@ -13,7 +13,7 @@ The caller must supply:
 - the collection timestamp; and
 - an observed-at timestamp when the source record does not contain an explicit one.
 
-The source format is recorded by Ingestion Core in each envelope. The adapter derives the digest scope from that field and does not accept a caller override.
+The source format is recorded by Ingestion Core in each envelope. The adapter requires the envelope's explicit `record_representation_scope` to match `source_format`; it rejects mismatches and does not accept a caller override.
 
 No timestamp, URI, publisher, license, or authorization is fabricated. The source URI is attribution metadata, not proof of ownership or authenticity.
 
@@ -21,8 +21,8 @@ No timestamp, URI, publisher, license, or authorization is fabricated. The sourc
 
 1. `integrity.scope=content.text.utf8`: SHA-256 recomputed by the adapter over the exact UTF-8 bytes of the decoded Observation `content.text`. The Protocol validator recomputes this digest.
 2. `ingestion.record_digest`: the digest and byte count carried by the ingestion envelope, with an explicit source-format scope:
-   - `ingestion.jsonl.line.bytes`: exact JSONL input line bytes consumed by Ingestion Core, including the line terminator when present;
-   - `ingestion.csv.normalized_row.utf8`: normalized JSON serialization of the parsed CSV row, not original CSV file or physical-row bytes.
+   - `jsonl.raw_line.bytes`: exact JSONL physical line bytes consumed by Ingestion Core, including the line terminator when present;
+   - `csv.parsed_row.canonical_json.utf8`: canonical JSON array of parsed CSV field values, not original CSV file or physical-row bytes.
 
 The two digests are not interchangeable. Neither proves source authenticity, legal authority, authorship, time, or truth.
 
@@ -55,11 +55,11 @@ count = export_current_generation(
 print(f"exported {count} observations")
 ```
 
-The adapter verifies the `CURRENT.json` manifest (including duplicate-key rejection, canonical UUID, timezone-aware creation time, and non-negative counts), both generation files, their sizes, SHA-256 digests, newline termination, and manifest record counts, and rejects symlinked paths before reading the accepted stream. Export writes deterministic JSONL to a same-directory temporary file and replaces the destination only after every observation validates; it refuses destinations inside the source generation.
+The adapter delegates `CURRENT.json` validation to the public `elite_ingestion.generation.read_current_generation` API, avoiding a second implementation of generation-pointer verification. It reads only the committed accepted stream; the API verifies both generation files, sizes, SHA-256 digests, newline termination, record counts, canonical UUID, timezone-aware creation time, and symlink boundaries. Accepted-envelope JSON rejects duplicate keys. Export writes deterministic JSONL to a same-directory temporary file and replaces the destination only after every observation validates; it refuses destinations inside the source generation.
 
 
 ## Cross-repository verification
 
-Protocol CI checks out ELITE Ingestion Core PR #2 at the exact reviewed source revision `e7ff07339a3b5256cca0e983f03ccc579b6cfdeb`. The adapter test suite invokes its real CLI to create a committed generation from synthetic JSONL and CSV inputs, then resolves the resulting `CURRENT.json` through the adapter.
+Protocol CI checks out ELITE Ingestion Core PR #2 at exact source revision `8d690c948e129d65dde65b3b8730f9835c62ce7c` and installs its package. The adapter test suite invokes its real CLI to create a committed generation from synthetic JSONL and CSV inputs, then resolves the resulting `CURRENT.json` through the public generation API.
 
 The JSONL integration test verifies the ingestion digest against exact source line bytes. The CSV integration test verifies the digest against the normalized row representation emitted by Ingestion Core and explicitly checks that it is not mislabeled as the original CSV file digest. This is a pinned cross-repository integration fixture, not a moving dependency on the default branch.
