@@ -133,6 +133,18 @@ class IngestionAdapterTests(unittest.TestCase):
             items = list(iter_accepted_jsonl(path, **self.kwargs()))
             self.assertEqual([item["content"]["text"] for item in items], ["Captured text", "Second"])
 
+
+    def test_accepted_envelope_import_id_must_match_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "accepted.jsonl"
+            path.write_text(json.dumps(envelope()) + "\\n", encoding="utf-8")
+            with self.assertRaisesRegex(IngestionAdapterError, "import_id does not match CURRENT generation"):
+                list(iter_accepted_jsonl(
+                    path,
+                    expected_import_id="different-generation",
+                    **self.kwargs(),
+                ))
+
     def test_malformed_jsonl_stream_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "accepted.jsonl"
