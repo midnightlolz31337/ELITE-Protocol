@@ -296,7 +296,7 @@ def export_current_generation(
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
-            newline="\\n",
+            newline="",
             dir=destination.parent,
             prefix=".elite-observation-export-",
             suffix=".tmp",
@@ -317,7 +317,7 @@ def export_current_generation(
                     sort_keys=True,
                     separators=(",", ":"),
                 ))
-                handle.write("\\n")
+                handle.write(chr(10))
                 count += 1
             handle.flush()
             os.fsync(handle.fileno())
