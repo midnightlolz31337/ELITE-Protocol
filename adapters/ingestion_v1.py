@@ -10,6 +10,7 @@ import json
 import os
 import tempfile
 import uuid
+from datetime import datetime
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
@@ -143,13 +144,23 @@ def observation_from_envelope(
 
 
 
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise IngestionAdapterError(f"duplicate JSON key in CURRENT.json: {key}")
+        result[key] = value
+    return result
+
+
 def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
     """Resolve accepted.jsonl only after verifying the ingestion CURRENT pointer."""
     pointer = Path(pointer_path)
     if pointer.is_symlink():
         raise IngestionAdapterError("CURRENT.json must not be a symlink")
     try:
-        manifest = json.loads(pointer.read_text(encoding="utf-8"))
+        manifest = json.loads(pointer.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object)
     except (OSError, json.JSONDecodeError) as exc:
         raise IngestionAdapterError(f"cannot read CURRENT.json: {exc}") from exc
     expected_keys = {
@@ -160,6 +171,15 @@ def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
         raise IngestionAdapterError("CURRENT.json has an invalid structure")
     if manifest["schema_version"] != "1":
         raise IngestionAdapterError("unsupported CURRENT.json schema version")
+    created_at = manifest["created_at"]
+    if not isinstance(created_at, str) or not created_at:
+        raise IngestionAdapterError("CURRENT.json created_at is invalid")
+    try:
+        parsed_created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise IngestionAdapterError("CURRENT.json created_at is not a valid ISO 8601 timestamp") from exc
+    if parsed_created_at.tzinfo is None or parsed_created_at.utcoffset() is None:
+        raise IngestionAdapterError("CURRENT.json created_at must include a timezone")
     generation_id = manifest["generation_id"]
     if not isinstance(generation_id, str):
         raise IngestionAdapterError("CURRENT.json generation_id is invalid")
