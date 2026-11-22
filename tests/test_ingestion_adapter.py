@@ -17,19 +17,29 @@ from adapters.ingestion_v1 import (
 
 
 def envelope(*, content="Captured text", decision="accepted", source_format="jsonl", source_format_digest=None):
+    representation = (
+        b'{"content":"Captured text"}\\n'
+        if source_format == "jsonl"
+        else b'["Captured text"]'
+    )
+    scope = (
+        "jsonl.raw_line.bytes"
+        if source_format == "jsonl"
+        else "csv.parsed_row.canonical_json.utf8"
+    )
     return {
         "record_id": "import-123:4",
         "import_id": "import-123",
         "source_id": "source-example",
         "source_format": source_format,
         "source_record": 4,
-        "content_sha256": source_format_digest or hashlib.sha256(b'{"content":"Captured text"}\n').hexdigest(),
-        "raw_size_bytes": 28,
+        "record_representation_sha256": source_format_digest or hashlib.sha256(representation).hexdigest(),
+        "record_representation_size_bytes": len(representation),
+        "record_representation_scope": scope,
         "record": {"content": content},
         "decision": decision,
         "reasons": [],
     }
-
 
 class IngestionAdapterTests(unittest.TestCase):
     def kwargs(self):
@@ -52,17 +62,17 @@ class IngestionAdapterTests(unittest.TestCase):
         self.assertEqual(item["integrity"]["digest"], hashlib.sha256(b"Captured text").hexdigest())
 
     def test_preserves_ingestion_digest_separately_from_text_digest(self):
-        raw_digest = envelope()["content_sha256"]
+        raw_digest = envelope()["record_representation_sha256"]
         item = observation_from_envelope(envelope(), **self.kwargs())
         self.assertEqual(item["ingestion"]["record_digest"]["digest"], raw_digest)
         self.assertNotEqual(item["integrity"]["digest"], raw_digest)
-        self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.jsonl.line.bytes")
+        self.assertEqual(item["ingestion"]["record_digest"]["scope"], "jsonl.raw_line.bytes")
 
     def test_csv_digest_is_explicitly_labeled_normalized_row_not_raw_bytes(self):
         item = observation_from_envelope(envelope(source_format="csv"), **self.kwargs())
         self.assertEqual(
             item["ingestion"]["record_digest"]["scope"],
-            "ingestion.csv.normalized_row.utf8",
+            "csv.parsed_row.canonical_json.utf8",
         )
         self.assertTrue(any("normalized row" in value for value in item["limitations"]))
 
@@ -98,7 +108,7 @@ class IngestionAdapterTests(unittest.TestCase):
 
     def test_invalid_digest_fails_closed(self):
         item = envelope()
-        item["content_sha256"] = "not-a-digest"
+        item["record_representation_sha256"] = "not-a-digest"
         with self.assertRaisesRegex(IngestionAdapterError, "SHA-256"):
             observation_from_envelope(item, **self.kwargs())
 
@@ -210,7 +220,7 @@ class IngestionAdapterTests(unittest.TestCase):
             self.assertEqual(item["content"]["text"], "Cross-repository JSONL evidence")
             self.assertEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source_bytes).hexdigest())
             self.assertEqual(item["ingestion"]["record_digest"]["size_bytes"], len(source_bytes))
-            self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.jsonl.line.bytes")
+            self.assertEqual(item["ingestion"]["record_digest"]["scope"], "jsonl.raw_line.bytes")
             exported_path = root / "observations.jsonl"
             self.assertEqual(export_current_generation(
                 output / "CURRENT.json", exported_path,
@@ -247,7 +257,7 @@ class IngestionAdapterTests(unittest.TestCase):
             item = observations[0]
             expected_row = b'["CSV generated evidence"]'
             self.assertEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(expected_row).hexdigest())
-            self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.csv.normalized_row.utf8")
+            self.assertEqual(item["ingestion"]["record_digest"]["scope"], "csv.parsed_row.canonical_json.utf8")
             self.assertNotEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source.read_bytes()).hexdigest())
             exported_path = root / "observations.csv-source.jsonl"
             self.assertEqual(export_current_generation(
@@ -258,7 +268,7 @@ class IngestionAdapterTests(unittest.TestCase):
             ), 1)
             exported = json.loads(exported_path.read_text(encoding="utf-8"))
             self.assertEqual(exported["content"]["text"], "CSV generated evidence")
-            self.assertEqual(exported["ingestion"]["record_digest"]["scope"], "ingestion.csv.normalized_row.utf8")
+            self.assertEqual(exported["ingestion"]["record_digest"]["scope"], "csv.parsed_row.canonical_json.utf8")
 
 
     def test_current_pointer_rejects_record_count_mismatch(self):
