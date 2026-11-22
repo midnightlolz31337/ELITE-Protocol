@@ -193,7 +193,8 @@
               "type": "integer",
               "minimum": 0
             }
-          }
+          },
+          "description": "Digest of the Ingestion Core record representation only. jsonl.raw_line.bytes covers the exact JSONL physical line bytes; csv.parsed_row.canonical_json.utf8 covers the canonical JSON array of parsed CSV fields. Neither scope is a digest of the complete original source file."
         },
         "source_registry_revision": {
           "type": "string",
