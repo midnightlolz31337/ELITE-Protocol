@@ -128,6 +128,13 @@ class ProtocolConformanceTests(unittest.TestCase):
         self.assertNotEqual(representation_digest, text_digest)
         validate_document("observation", item)
 
+
+    def test_observation_v1_2_representation_scope_must_match_source_format(self):
+        item = observation_v12()
+        item["ingestion_provenance"]["source_format"] = "csv"
+        with self.assertRaisesRegex(ProtocolValidationError, "does not match source_format"):
+            validate_document("observation", item)
+
     def test_unknown_observation_schema_version_rejected(self):
         item = observation()
         item["schema_version"] = "9.9.9"
