@@ -18,7 +18,7 @@ Define interoperable envelopes for observations, claims, evidence references, an
 - `schemas/claim.schema.json` — proposition with evidence references and uncertainty.
 - `schemas/review-decision.schema.json` — versioned review outcome.
 - `validator.py` — JSON Schema and bundle-level reference validation.
-- `docs/TRUST_MODEL.md` — trust boundaries and non-goals.
+- `docs/TRUST_MODEL.md` — trust boundaries and non-goals.\n- `adapters/ingestion_v1.py` — versioned adapter from accepted Ingestion Core envelopes to Observation 1.1.0.\n- `docs/INGESTION_ADAPTER_V1.md` — conversion contract, digest scopes, and limitations.
 
 ## Validation
 Install the runtime validation dependency and run the conformance suite:
