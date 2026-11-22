@@ -28,7 +28,7 @@ def observation_v12(identifier="obs-1"):
     item = observation(identifier)
     item["schema_version"] = "1.2.0"
     item["collected_at"] = "2026-11-17T12:01:00Z"
-    representation = b'{"content":"Observed text"}\\n'
+    representation = b'{"content":"Observed text"}\n'
     item["ingestion_provenance"] = {
         "component": "elite-ingestion-core",
         "component_version": "0.2.0",
@@ -128,6 +128,14 @@ class ProtocolConformanceTests(unittest.TestCase):
         self.assertNotEqual(representation_digest, text_digest)
         validate_document("observation", item)
 
+
+
+    def test_observation_v1_2_accepts_csv_representation_scope(self):
+        item = observation_v12()
+        provenance = item["ingestion_provenance"]
+        provenance["source_format"] = "csv"
+        provenance["record_representation"]["scope"] = "csv.parsed_row.canonical_json.utf8"
+        validate_document("observation", item)
 
     def test_observation_v1_2_representation_scope_must_match_source_format(self):
         item = observation_v12()
