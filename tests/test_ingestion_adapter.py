@@ -15,11 +15,12 @@ from adapters.ingestion_v1 import (
 )
 
 
-def envelope(*, content="Captured text", decision="accepted", source_format_digest=None):
+def envelope(*, content="Captured text", decision="accepted", source_format="jsonl", source_format_digest=None):
     return {
         "record_id": "import-123:4",
         "import_id": "import-123",
         "source_id": "source-example",
+        "source_format": source_format,
         "source_record": 4,
         "content_sha256": source_format_digest or hashlib.sha256(b'{"content":"Captured text"}\n').hexdigest(),
         "raw_size_bytes": 28,
@@ -34,7 +35,6 @@ class IngestionAdapterTests(unittest.TestCase):
         return {
             "source_uri": "https://example.org/archive/item",
             "collected_at": "2026-11-22T12:30:00Z",
-            "source_format": source_format,
             "observed_at": "2026-11-22T12:00:00Z",
         }
 
@@ -57,7 +57,7 @@ class IngestionAdapterTests(unittest.TestCase):
         self.assertEqual(item["ingestion"]["record_digest"]["scope"], "ingestion.jsonl.line.bytes")
 
     def test_csv_digest_is_explicitly_labeled_normalized_row_not_raw_bytes(self):
-        item = observation_from_envelope(envelope(), **self.kwargs("csv"))
+        item = observation_from_envelope(envelope(source_format="csv"), **self.kwargs())
         self.assertEqual(
             item["ingestion"]["record_digest"]["scope"],
             "ingestion.csv.normalized_row.utf8",
@@ -81,6 +81,18 @@ class IngestionAdapterTests(unittest.TestCase):
     def test_missing_source_uri_fails_closed(self):
         with self.assertRaisesRegex(IngestionAdapterError, "source_uri"):
             observation_from_envelope(envelope(), **{**self.kwargs(), "source_uri": ""})
+
+
+    def test_unknown_envelope_source_format_fails_closed(self):
+        item = envelope(source_format="ambiguous")
+        with self.assertRaisesRegex(IngestionAdapterError, "source_format"):
+            observation_from_envelope(item, **self.kwargs())
+
+    def test_missing_envelope_source_format_fails_closed(self):
+        item = envelope()
+        del item["source_format"]
+        with self.assertRaisesRegex(IngestionAdapterError, "source_format"):
+            observation_from_envelope(item, **self.kwargs())
 
     def test_invalid_digest_fails_closed(self):
         item = envelope()
@@ -190,7 +202,6 @@ class IngestionAdapterTests(unittest.TestCase):
                 source_uri="https://example.org/integration/jsonl",
                 collected_at="2026-11-22T12:30:00Z",
                 observed_at="2026-11-22T12:00:00Z",
-                source_format="jsonl",
             ))
             self.assertEqual(len(observations), 1)
             item = observations[0]
@@ -220,7 +231,6 @@ class IngestionAdapterTests(unittest.TestCase):
                 source_uri="https://example.org/integration/csv",
                 collected_at="2026-11-22T12:30:00Z",
                 observed_at="2026-11-22T12:00:00Z",
-                source_format="csv",
             ))
             self.assertEqual(len(observations), 1)
             item = observations[0]
