@@ -30,7 +30,6 @@ def observation_from_envelope(
     *,
     source_uri: str,
     collected_at: str,
-    source_format: str,
     observed_at: str | None = None,
     media_type: str = "text/plain",
     language: str | None = None,
@@ -65,8 +64,9 @@ def observation_from_envelope(
         raise IngestionAdapterError("content_sha256 must be a lowercase SHA-256 hex digest")
     if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes < 0:
         raise IngestionAdapterError("raw_size_bytes must be a non-negative integer")
+    source_format = envelope.get("source_format")
     if source_format not in SOURCE_DIGEST_SCOPES:
-        raise IngestionAdapterError("source_format must be jsonl or csv")
+        raise IngestionAdapterError("ingestion envelope source_format must be jsonl or csv")
     if not isinstance(source_uri, str) or not source_uri.strip():
         raise IngestionAdapterError("source_uri must be explicitly supplied")
     if not isinstance(collected_at, str) or not collected_at.strip():
@@ -117,6 +117,7 @@ def observation_from_envelope(
         "ingestion": {
             "import_id": import_id,
             "record_id": record_id,
+            "source_format": source_format,
             "source_record_line": source_line,
             "record_digest": {
                 "algorithm": "sha-256",
@@ -230,7 +231,6 @@ def iter_accepted_jsonl(
     *,
     source_uri: str,
     collected_at: str,
-    source_format: str,
     observed_at: str | None = None,
     media_type: str = "text/plain",
     language: str | None = None,
@@ -250,7 +250,6 @@ def iter_accepted_jsonl(
                 envelope,
                 source_uri=source_uri,
                 collected_at=collected_at,
-                source_format=source_format,
                 observed_at=observed_at,
                 media_type=media_type,
                 language=language,
