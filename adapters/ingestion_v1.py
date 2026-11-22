@@ -206,7 +206,7 @@ def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
         with file_path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(64 * 1024), b""):
                 actual_hash.update(chunk)
-                actual_count += chunk.count(b"\\n")
+                actual_count += chunk.count(bytes([10]))
                 if chunk:
                     last_byte = chunk[-1]
         if file_path.stat().st_size != size or actual_hash.hexdigest() != digest:
