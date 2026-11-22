@@ -299,8 +299,13 @@ def export_current_generation(
             delete=False,
         ) as handle:
             temporary = Path(handle.name)
-            for observation in iter_current_generation(
-                pointer,
+            accepted_entry = manifest["files"]["accepted.jsonl"]
+            for observation in iter_accepted_jsonl(
+                accepted_path,
+                expected_import_id=manifest["generation_id"],
+                expected_digest=accepted_entry["sha256"],
+                expected_size=accepted_entry["size"],
+                expected_count=manifest["accepted_count"],
                 source_uri=source_uri,
                 collected_at=collected_at,
                 observed_at=observed_at,
