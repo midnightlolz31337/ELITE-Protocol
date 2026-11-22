@@ -296,6 +296,25 @@ class IngestionAdapterTests(unittest.TestCase):
         pointer.write_text(json.dumps(manifest))
         return pointer, generation
 
+
+    def test_current_pointer_rejects_duplicate_json_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, _ = self._write_current_fixture(root, envelope())
+            pointer.write_text('{"schema_version":"1","schema_version":"1"}')
+            with self.assertRaisesRegex(IngestionAdapterError, "duplicate JSON key"):
+                list(iter_current_generation(pointer, **self.kwargs()))
+
+    def test_current_pointer_rejects_timezone_free_created_at(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, _ = self._write_current_fixture(root, envelope())
+            manifest = json.loads(pointer.read_text())
+            manifest["created_at"] = "2026-11-22T12:30:00"
+            pointer.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(IngestionAdapterError, "must include a timezone"):
+                list(iter_current_generation(pointer, **self.kwargs()))
+
     def test_export_current_generation_is_deterministic_jsonl(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
