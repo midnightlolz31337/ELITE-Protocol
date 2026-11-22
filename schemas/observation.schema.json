@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "observation_id": {
       "type": "string",
@@ -56,12 +56,12 @@
     "observed_at": {
       "type": "string",
       "format": "date-time",
-          "maxLength": 64
+      "maxLength": 64
     },
     "collected_at": {
       "type": "string",
       "format": "date-time",
-          "maxLength": 64
+      "maxLength": 64
     },
     "content": {
       "type": "object",
@@ -91,6 +91,7 @@
       "additionalProperties": false,
       "required": [
         "algorithm",
+        "scope",
         "digest"
       ],
       "properties": {
@@ -100,8 +101,12 @@
         "digest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "scope": {
+          "const": "content.text.utf8"
         }
-      }
+      },
+      "description": "SHA-256 digest of the exact UTF-8 bytes of content.text after JSON decoding; not the original serialized source-file bytes."
     },
     "limitations": {
       "type": "array",
