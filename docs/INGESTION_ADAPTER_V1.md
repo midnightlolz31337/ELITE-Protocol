@@ -55,7 +55,7 @@ count = export_current_generation(
 print(f"exported {count} observations")
 ```
 
-The adapter verifies the `CURRENT.json` manifest, both generation files, their sizes, SHA-256 digests, newline termination, and manifest record counts, and rejects symlinked paths before reading the accepted stream.
+The adapter verifies the `CURRENT.json` manifest (including duplicate-key rejection, canonical UUID, timezone-aware creation time, and non-negative counts), both generation files, their sizes, SHA-256 digests, newline termination, and manifest record counts, and rejects symlinked paths before reading the accepted stream. Export writes deterministic JSONL to a same-directory temporary file and replaces the destination only after every observation validates; it refuses destinations inside the source generation.
 
 
 ## Cross-repository verification
