@@ -137,7 +137,7 @@ class IngestionAdapterTests(unittest.TestCase):
     def test_accepted_envelope_import_id_must_match_generation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "accepted.jsonl"
-            path.write_text(json.dumps(envelope()) + "\\n", encoding="utf-8")
+            path.write_text(json.dumps(envelope()) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(IngestionAdapterError, "import_id does not match CURRENT generation"):
                 list(iter_accepted_jsonl(
                     path,
