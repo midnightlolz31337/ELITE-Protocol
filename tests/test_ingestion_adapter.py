@@ -7,6 +7,7 @@ from pathlib import Path
 from adapters.ingestion_v1 import (
     IngestionAdapterError,
     iter_accepted_jsonl,
+    iter_current_generation,
     observation_from_envelope,
 )
 
@@ -97,6 +98,71 @@ class IngestionAdapterTests(unittest.TestCase):
             path.write_text('{"decision":\n')
             with self.assertRaisesRegex(IngestionAdapterError, "invalid JSON"):
                 list(iter_accepted_jsonl(path, **self.kwargs()))
+
+
+    def test_current_pointer_verifies_generation_before_conversion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generation_id = "12345678-1234-5678-1234-567812345678"
+            generation = root / "generations" / generation_id
+            generation.mkdir(parents=True)
+            accepted = (json.dumps(envelope()) + "\\n").encode()
+            quarantine = b""
+            (generation / "accepted.jsonl").write_bytes(accepted)
+            (generation / "quarantine.jsonl").write_bytes(quarantine)
+            manifest = {
+                "schema_version": "1",
+                "generation_id": generation_id,
+                "generation_path": f"generations/{generation_id}",
+                "created_at": "2026-11-22T12:30:00Z",
+                "accepted_count": 1,
+                "quarantine_count": 0,
+                "files": {
+                    "accepted.jsonl": {
+                        "path": f"generations/{generation_id}/accepted.jsonl",
+                        "size": len(accepted),
+                        "sha256": hashlib.sha256(accepted).hexdigest(),
+                    },
+                    "quarantine.jsonl": {
+                        "path": f"generations/{generation_id}/quarantine.jsonl",
+                        "size": len(quarantine),
+                        "sha256": hashlib.sha256(quarantine).hexdigest(),
+                    },
+                },
+            }
+            pointer = root / "CURRENT.json"
+            pointer.write_text(json.dumps(manifest))
+            items = list(iter_current_generation(pointer, **self.kwargs()))
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0]["content"]["text"], "Captured text")
+
+    def test_current_pointer_rejects_tampered_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generation_id = "12345678-1234-5678-1234-567812345678"
+            generation = root / "generations" / generation_id
+            generation.mkdir(parents=True)
+            accepted = (json.dumps(envelope()) + "\\n").encode()
+            (generation / "accepted.jsonl").write_bytes(accepted)
+            (generation / "quarantine.jsonl").write_bytes(b"")
+            manifest = {
+                "schema_version": "1", "generation_id": generation_id,
+                "generation_path": f"generations/{generation_id}",
+                "created_at": "2026-11-22T12:30:00Z", "accepted_count": 1,
+                "quarantine_count": 0,
+                "files": {
+                    name: {
+                        "path": f"generations/{generation_id}/{name}",
+                        "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                    }
+                    for name, data in (("accepted.jsonl", accepted), ("quarantine.jsonl", b""))
+                },
+            }
+            pointer = root / "CURRENT.json"
+            pointer.write_text(json.dumps(manifest))
+            (generation / "accepted.jsonl").write_text("tampered")
+            with self.assertRaisesRegex(IngestionAdapterError, "integrity check failed"):
+                list(iter_current_generation(pointer, **self.kwargs()))
 
 
 if __name__ == "__main__":
