@@ -75,6 +75,10 @@ class ProtocolConformanceTests(unittest.TestCase):
         validate_bundle([observation()], [claim()], [decision()])
 
 
+
+    def test_v1_2_observation_works_in_referential_bundle_validation(self):
+        validate_bundle([observation_v12()], [claim()], [decision()])
+
     def test_observation_digest_mismatch_rejected(self):
         item = observation()
         item["integrity"]["digest"] = "a" * 64
