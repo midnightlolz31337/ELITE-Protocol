@@ -230,5 +230,34 @@ class IngestionAdapterTests(unittest.TestCase):
             self.assertNotEqual(item["ingestion"]["record_digest"]["digest"], hashlib.sha256(source.read_bytes()).hexdigest())
 
 
+    def test_current_pointer_rejects_record_count_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generation_id = "12345678-1234-5678-1234-567812345678"
+            generation = root / "generations" / generation_id
+            generation.mkdir(parents=True)
+            accepted = (json.dumps(envelope()) + "\n").encode()
+            quarantine = b""
+            (generation / "accepted.jsonl").write_bytes(accepted)
+            (generation / "quarantine.jsonl").write_bytes(quarantine)
+            manifest = {
+                "schema_version": "1", "generation_id": generation_id,
+                "generation_path": f"generations/{generation_id}",
+                "created_at": "2026-11-22T12:30:00Z", "accepted_count": 2,
+                "quarantine_count": 0,
+                "files": {
+                    name: {
+                        "path": f"generations/{generation_id}/{name}",
+                        "size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                    }
+                    for name, data in (("accepted.jsonl", accepted), ("quarantine.jsonl", quarantine))
+                },
+            }
+            pointer = root / "CURRENT.json"
+            pointer.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(IngestionAdapterError, "record count mismatch"):
+                list(iter_current_generation(pointer, **self.kwargs()))
+
+
 if __name__ == "__main__":
     unittest.main()
