@@ -9,13 +9,12 @@ import hashlib
 import json
 import os
 import tempfile
-import uuid
-from datetime import datetime
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
 from validator import validate_document
+from elite_ingestion.generation import read_current_generation
 
 SCHEMA_VERSION = "1.1.0"
 SOURCE_DIGEST_SCOPES = {
@@ -149,101 +148,15 @@ def observation_from_envelope(
 
 
 
-def _unique_json_object(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise IngestionAdapterError(f"duplicate JSON key in CURRENT.json: {key}")
-        result[key] = value
-    return result
-
-
 def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
-    """Resolve accepted.jsonl only after verifying the ingestion CURRENT pointer."""
-    pointer = Path(pointer_path)
-    if pointer.is_symlink():
-        raise IngestionAdapterError("CURRENT.json must not be a symlink")
+    """Resolve accepted.jsonl using Ingestion Core's public generation reader."""
     try:
-        manifest = json.loads(pointer.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise IngestionAdapterError(f"cannot read CURRENT.json: {exc}") from exc
-    expected_keys = {
-        "schema_version", "generation_id", "generation_path", "created_at",
-        "accepted_count", "quarantine_count", "files",
-    }
-    if not isinstance(manifest, dict) or set(manifest) != expected_keys:
-        raise IngestionAdapterError("CURRENT.json has an invalid structure")
-    if manifest["schema_version"] != "1":
-        raise IngestionAdapterError("unsupported CURRENT.json schema version")
-    created_at = manifest["created_at"]
-    if not isinstance(created_at, str) or not created_at:
-        raise IngestionAdapterError("CURRENT.json created_at is invalid")
-    try:
-        parsed_created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise IngestionAdapterError("CURRENT.json created_at is not a valid ISO 8601 timestamp") from exc
-    if parsed_created_at.tzinfo is None or parsed_created_at.utcoffset() is None:
-        raise IngestionAdapterError("CURRENT.json created_at must include a timezone")
-    generation_id = manifest["generation_id"]
-    if not isinstance(generation_id, str):
-        raise IngestionAdapterError("CURRENT.json generation_id is invalid")
-    try:
-        parsed_id = uuid.UUID(generation_id)
-    except ValueError as exc:
-        raise IngestionAdapterError("CURRENT.json generation_id is not a UUID") from exc
-    if str(parsed_id) != generation_id:
-        raise IngestionAdapterError("CURRENT.json generation_id is not canonical")
-    relative_generation = f"generations/{generation_id}"
-    if manifest["generation_path"] != relative_generation:
-        raise IngestionAdapterError("CURRENT.json generation path is invalid")
-    for key in ("accepted_count", "quarantine_count"):
-        value = manifest[key]
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise IngestionAdapterError(f"CURRENT.json {key} is invalid")
-    root = pointer.parent.resolve()
-    generations = root / "generations"
-    generation = root / relative_generation
-    if generations.is_symlink() or generation.is_symlink():
-        raise IngestionAdapterError("current generation path must not contain symlinks")
-    resolved_generations = generations.resolve()
-    resolved_generation = generation.resolve()
-    if resolved_generation.parent != resolved_generations or not resolved_generation.is_dir():
-        raise IngestionAdapterError("current generation is missing or outside generations/")
-    files = manifest["files"]
-    names = ("accepted.jsonl", "quarantine.jsonl")
-    if not isinstance(files, dict) or set(files) != set(names):
-        raise IngestionAdapterError("CURRENT.json file map is invalid")
-    for name in names:
-        entry = files[name]
-        if not isinstance(entry, dict) or set(entry) != {"path", "size", "sha256"}:
-            raise IngestionAdapterError(f"CURRENT.json entry for {name} is invalid")
-        if entry["path"] != f"{relative_generation}/{name}":
-            raise IngestionAdapterError(f"CURRENT.json path for {name} is invalid")
-        file_path = resolved_generation / name
-        if file_path.is_symlink() or not file_path.is_file():
-            raise IngestionAdapterError(f"current generation file is missing or unsafe: {name}")
-        size, digest = entry["size"], entry["sha256"]
-        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
-            raise IngestionAdapterError(f"CURRENT.json size for {name} is invalid")
-        if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
-            raise IngestionAdapterError(f"CURRENT.json SHA-256 for {name} is invalid")
-        actual_hash = hashlib.sha256()
-        actual_count = 0
-        last_byte = None
-        with file_path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(64 * 1024), b""):
-                actual_hash.update(chunk)
-                actual_count += chunk.count(bytes([10]))
-                if chunk:
-                    last_byte = chunk[-1]
-        if file_path.stat().st_size != size or actual_hash.hexdigest() != digest:
-            raise IngestionAdapterError(f"current generation integrity check failed: {name}")
-        if size and last_byte != 10:
-            raise IngestionAdapterError(f"current generation file is not newline-terminated: {name}")
-        expected_count = manifest["accepted_count" if name == "accepted.jsonl" else "quarantine_count"]
-        if actual_count != expected_count:
-            raise IngestionAdapterError(f"current generation record count mismatch: {name}")
-    return resolved_generation / "accepted.jsonl"
+        _manifest, generation = read_current_generation(Path(pointer_path))
+    except Exception as exc:
+        raise IngestionAdapterError(
+            f"cannot resolve a verified committed Ingestion Core generation: {exc}"
+        ) from exc
+    return generation / "accepted.jsonl"
 
 
 def iter_current_generation(pointer_path: str | Path, **adapter_options: Any) -> Iterator[dict[str, Any]]:
