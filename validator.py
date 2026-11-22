@@ -92,6 +92,17 @@ def validate_document(kind: str, document: Mapping[str, Any]) -> None:
             raise ProtocolValidationError(
                 "observation integrity digest mismatch for scope content.text.utf8"
             )
+        if schema_version == "1.2.0":
+            provenance = document["ingestion_provenance"]
+            expected_scope = {
+                "jsonl": "jsonl.raw_line.bytes",
+                "csv": "csv.parsed_row.canonical_json.utf8",
+            }[provenance["source_format"]]
+            actual_scope = provenance["record_representation"]["scope"]
+            if actual_scope != expected_scope:
+                raise ProtocolValidationError(
+                    "ingestion representation scope does not match source_format"
+                )
 
 
 def validate_bundle(
