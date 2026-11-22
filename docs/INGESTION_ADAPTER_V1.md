@@ -11,7 +11,7 @@ The adapter reads the Ingestion Core `accepted.jsonl` output as a stream and emi
 The caller must supply:
 - the source URI (the ingestion envelope contains a source ID, not a canonical URI);
 - the collection timestamp;
-- the source format (`jsonl` or `csv`); and
+- the source format recorded by Ingestion Core in each envelope (the adapter does not accept a caller override); and
 - an observed-at timestamp when the source record does not contain an explicit one.
 
 No timestamp, URI, publisher, license, or authorization is fabricated. The source URI is attribution metadata, not proof of ownership or authenticity.
@@ -48,7 +48,6 @@ for observation in iter_accepted_jsonl(
     source_uri="https://example.org/source",
     collected_at="2026-11-22T12:30:00Z",
     observed_at="2026-11-22T12:00:00Z",
-    source_format="jsonl",
 ):
     print(observation)
 ```
