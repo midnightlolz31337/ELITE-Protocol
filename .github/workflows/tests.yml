@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: midnightlolz31337/ELITE-Ingestion-Core
-          ref: e7ff07339a3b5256cca0e983f03ccc579b6cfdeb
+          ref: 8d690c948e129d65dde65b3b8730f9835c62ce7c
           path: integration/ELITE-Ingestion-Core
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -29,7 +29,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install validation dependencies
         run: python -m pip install --requirement requirements.txt
-      - name: Compile validator
+      - name: Install pinned Ingestion Core API
+        run: python -m pip install --no-deps -e integration/ELITE-Ingestion-Core
+      - name: Compile validator and adapter
         run: python -m py_compile validator.py adapters/ingestion_v1.py
       - name: Run conformance and cross-repository integration tests
         env:
