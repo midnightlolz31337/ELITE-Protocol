@@ -115,6 +115,62 @@
         "type": "string",
         "maxLength": 2000
       }
+    },
+    "ingestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "import_id",
+        "record_id",
+        "source_record_line",
+        "record_digest"
+      ],
+      "properties": {
+        "import_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_record_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "record_digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "scope",
+            "digest",
+            "size_bytes"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "sha-256"
+            },
+            "scope": {
+              "enum": [
+                "ingestion.jsonl.line.bytes",
+                "ingestion.csv.normalized_row.utf8"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "description": "Digest metadata from the originating Ingestion Core envelope; distinct from integrity.digest over decoded Observation content.text."
     }
   }
 }
