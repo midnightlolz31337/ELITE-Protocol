@@ -19,8 +19,8 @@ from validator import validate_document
 
 SCHEMA_VERSION = "1.1.0"
 SOURCE_DIGEST_SCOPES = {
-    "jsonl": "ingestion.jsonl.line.bytes",
-    "csv": "ingestion.csv.normalized_row.utf8",
+    "jsonl": "jsonl.raw_line.bytes",
+    "csv": "csv.parsed_row.canonical_json.utf8",
 }
 
 
@@ -56,20 +56,24 @@ def observation_from_envelope(
     import_id = envelope.get("import_id")
     record_id = envelope.get("record_id")
     source_line = envelope.get("source_record")
-    digest = envelope.get("content_sha256")
-    size_bytes = envelope.get("raw_size_bytes")
+    digest = envelope.get("record_representation_sha256")
+    size_bytes = envelope.get("record_representation_size_bytes")
     for name, value in (("source_id", source_id), ("import_id", import_id), ("record_id", record_id)):
         if not isinstance(value, str) or not value.strip():
             raise IngestionAdapterError(f"missing or invalid {name}")
     if isinstance(source_line, bool) or not isinstance(source_line, int) or source_line < 1:
         raise IngestionAdapterError("source_record must be a positive line number")
     if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
-        raise IngestionAdapterError("content_sha256 must be a lowercase SHA-256 hex digest")
+        raise IngestionAdapterError("record_representation_sha256 must be a lowercase SHA-256 hex digest")
     if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes < 0:
-        raise IngestionAdapterError("raw_size_bytes must be a non-negative integer")
+        raise IngestionAdapterError("record_representation_size_bytes must be a non-negative integer")
     source_format = envelope.get("source_format")
     if source_format not in SOURCE_DIGEST_SCOPES:
         raise IngestionAdapterError("ingestion envelope source_format must be jsonl or csv")
+    if envelope.get("record_representation_scope") != SOURCE_DIGEST_SCOPES[source_format]:
+        raise IngestionAdapterError("record representation scope does not match source_format")
+    if record_id != f"{import_id}:{source_line}":
+        raise IngestionAdapterError("record_id does not match import_id and source_record")
     if not isinstance(source_uri, str) or not source_uri.strip():
         raise IngestionAdapterError("source_uri must be explicitly supplied")
     if not isinstance(collected_at, str) or not collected_at.strip():
@@ -98,11 +102,11 @@ def observation_from_envelope(
     ]
     if source_format == "csv":
         limitations.append(
-            "CSV digest covers the ingestion core's normalized row representation, not original source-file or physical-row bytes."
+            "CSV digest covers the ingestion core's canonical JSON array of parsed row fields, not original source-file or physical-row bytes."
         )
     else:
         limitations.append(
-            "JSONL digest covers the exact input line bytes read by ingestion, including its line terminator when present; it is not a whole-file digest."
+            "JSONL digest covers the exact physical line bytes read by ingestion, including its line terminator when present; it is not a whole-file digest."
         )
 
     observation: dict[str, Any] = {
