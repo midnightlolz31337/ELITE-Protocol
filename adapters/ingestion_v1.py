@@ -204,6 +204,10 @@ def iter_accepted_jsonl(
                 raise IngestionAdapterError(
                     f"invalid JSON in accepted envelope stream at line {line_number}"
                 ) from exc
+            if not isinstance(envelope, Mapping):
+                raise IngestionAdapterError(
+                    f"accepted envelope at line {line_number} must be an object"
+                )
             if expected_import_id is not None and envelope.get("import_id") != expected_import_id:
                 raise IngestionAdapterError(
                     f"accepted envelope import_id does not match CURRENT generation at line {line_number}"
