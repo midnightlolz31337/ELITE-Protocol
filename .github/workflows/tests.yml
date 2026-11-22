@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: midnightlolz31337/ELITE-Ingestion-Core
-          ref: ffcd1be8ecbbf2c4e2b4c5985519bb7d8d8271d3
+          ref: ad2fd7d7886af3486e288d31a805ae0f68173177
           path: integration/ELITE-Ingestion-Core
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
