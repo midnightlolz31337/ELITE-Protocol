@@ -157,21 +157,29 @@ def _unique_json_object(pairs):
     return result
 
 
-def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
-    """Resolve accepted.jsonl using Ingestion Core's public generation reader."""
+def _verified_current_generation(pointer_path: str | Path) -> tuple[dict[str, Any], Path]:
     try:
-        _manifest, generation = read_current_generation(Path(pointer_path))
+        return read_current_generation(Path(pointer_path))
     except Exception as exc:
         raise IngestionAdapterError(
             f"cannot resolve a verified committed Ingestion Core generation: {exc}"
         ) from exc
+
+
+def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
+    """Resolve accepted.jsonl using Ingestion Core's public generation reader."""
+    _manifest, generation = _verified_current_generation(pointer_path)
     return generation / "accepted.jsonl"
 
 
 def iter_current_generation(pointer_path: str | Path, **adapter_options: Any) -> Iterator[dict[str, Any]]:
     """Stream observations from the verified generation named by CURRENT.json."""
-    accepted_path = accepted_jsonl_from_current(pointer_path)
-    yield from iter_accepted_jsonl(accepted_path, **adapter_options)
+    manifest, generation = _verified_current_generation(pointer_path)
+    yield from iter_accepted_jsonl(
+        generation / "accepted.jsonl",
+        expected_import_id=manifest["generation_id"],
+        **adapter_options,
+    )
 
 
 def iter_accepted_jsonl(
@@ -182,8 +190,10 @@ def iter_accepted_jsonl(
     observed_at: str | None = None,
     media_type: str = "text/plain",
     language: str | None = None,
+    expected_import_id: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Stream an accepted.jsonl generation file; malformed lines fail closed."""
+
     with Path(path).open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, 1):
             if not line.strip():
@@ -194,6 +204,10 @@ def iter_accepted_jsonl(
                 raise IngestionAdapterError(
                     f"invalid JSON in accepted envelope stream at line {line_number}"
                 ) from exc
+            if expected_import_id is not None and envelope.get("import_id") != expected_import_id:
+                raise IngestionAdapterError(
+                    f"accepted envelope import_id does not match CURRENT generation at line {line_number}"
+                )
             yield observation_from_envelope(
                 envelope,
                 source_uri=source_uri,
@@ -221,8 +235,9 @@ def export_current_generation(
     after the entire accepted stream has converted successfully.
     """
     pointer = Path(pointer_path)
-    accepted_path = accepted_jsonl_from_current(pointer)
-    generation_dir = accepted_path.parent.resolve()
+    manifest, generation = _verified_current_generation(pointer)
+    accepted_path = generation / "accepted.jsonl"
+    generation_dir = generation.resolve()
     destination = Path(output_path)
     if destination.is_symlink():
         raise IngestionAdapterError("export destination must not be a symlink")
@@ -251,6 +266,7 @@ def export_current_generation(
             temporary = Path(handle.name)
             for observation in iter_accepted_jsonl(
                 accepted_path,
+                expected_import_id=manifest["generation_id"],
                 source_uri=source_uri,
                 collected_at=collected_at,
                 observed_at=observed_at,
