@@ -67,7 +67,7 @@ def observation_from_envelope(
     if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes < 0:
         raise IngestionAdapterError("record_representation_size_bytes must be a non-negative integer")
     source_format = envelope.get("source_format")
-    if source_format not in SOURCE_DIGEST_SCOPES:
+    if not isinstance(source_format, str) or source_format not in SOURCE_DIGEST_SCOPES:
         raise IngestionAdapterError("ingestion envelope source_format must be jsonl or csv")
     if envelope.get("record_representation_scope") != SOURCE_DIGEST_SCOPES[source_format]:
         raise IngestionAdapterError("record representation scope does not match source_format")
@@ -148,6 +148,15 @@ def observation_from_envelope(
 
 
 
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise IngestionAdapterError(f"duplicate JSON key in accepted envelope: {key}")
+        result[key] = value
+    return result
+
+
 def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
     """Resolve accepted.jsonl using Ingestion Core's public generation reader."""
     try:
@@ -180,7 +189,7 @@ def iter_accepted_jsonl(
             if not line.strip():
                 raise IngestionAdapterError(f"blank line in accepted envelope stream at line {line_number}")
             try:
-                envelope = json.loads(line)
+                envelope = json.loads(line, object_pairs_hook=_unique_json_object)
             except json.JSONDecodeError as exc:
                 raise IngestionAdapterError(
                     f"invalid JSON in accepted envelope stream at line {line_number}"
