@@ -41,10 +41,10 @@ The Observation retains source ID and caller-supplied URI, observation and colle
 ## Example
 
 ```python
-from adapters.ingestion_v1 import iter_accepted_jsonl
+from adapters.ingestion_v1 import iter_current_generation
 
 for observation in iter_accepted_jsonl(
-    "output/generations/<generation-id>/accepted.jsonl",
+    "output/CURRENT.json",
     source_uri="https://example.org/source",
     collected_at="2026-11-22T12:30:00Z",
     observed_at="2026-11-22T12:00:00Z",
@@ -53,4 +53,4 @@ for observation in iter_accepted_jsonl(
     print(observation)
 ```
 
-Use the `CURRENT.json` pointer and its referenced generation as the authoritative ingestion output. Do not select an arbitrary generation directory.
+The adapter verifies the `CURRENT.json` manifest, both generation files, their sizes and SHA-256 digests, and rejects symlinked paths before reading the accepted stream.
