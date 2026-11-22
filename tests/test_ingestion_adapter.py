@@ -74,7 +74,7 @@ class IngestionAdapterTests(unittest.TestCase):
             item["ingestion"]["record_digest"]["scope"],
             "csv.parsed_row.canonical_json.utf8",
         )
-        self.assertTrue(any("normalized row" in value for value in item["limitations"]))
+        self.assertTrue(any("canonical JSON array" in value for value in item["limitations"]))
 
     def test_quarantined_envelope_never_becomes_observation(self):
         with self.assertRaisesRegex(IngestionAdapterError, "only accepted"):
