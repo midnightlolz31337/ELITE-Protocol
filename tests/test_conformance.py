@@ -1,3 +1,4 @@
+import hashlib
 import json
 import unittest
 from pathlib import Path
@@ -9,12 +10,16 @@ from validator import ProtocolValidationError, _validator_for, validate_bundle, 
 
 def observation(identifier="obs-1"):
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "observation_id": identifier,
         "source": {"source_id": "source-a", "uri": "https://example.org/source"},
         "observed_at": "2026-11-17T12:00:00Z",
         "content": {"media_type": "text/plain", "text": "Observed text"},
-        "integrity": {"algorithm": "sha-256", "digest": "a" * 64},
+        "integrity": {
+            "algorithm": "sha-256",
+            "scope": "content.text.utf8",
+            "digest": hashlib.sha256(b"Observed text").hexdigest(),
+        },
     }
 
 
@@ -43,6 +48,31 @@ def decision(subject="claim:claim-1"):
 class ProtocolConformanceTests(unittest.TestCase):
     def test_valid_bundle(self):
         validate_bundle([observation()], [claim()], [decision()])
+
+
+    def test_observation_digest_mismatch_rejected(self):
+        item = observation()
+        item["integrity"]["digest"] = "a" * 64
+        with self.assertRaisesRegex(ProtocolValidationError, "integrity digest mismatch"):
+            validate_document("observation", item)
+
+    def test_observation_text_mutation_requires_new_digest(self):
+        item = observation()
+        item["content"]["text"] = "Changed text"
+        with self.assertRaisesRegex(ProtocolValidationError, "integrity digest mismatch"):
+            validate_document("observation", item)
+
+    def test_observation_integrity_scope_is_required(self):
+        item = observation()
+        del item["integrity"]["scope"]
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
+
+    def test_observation_integrity_scope_is_fixed(self):
+        item = observation()
+        item["integrity"]["scope"] = "whole-source-file"
+        with self.assertRaises(ProtocolValidationError):
+            validate_document("observation", item)
 
     def test_review_decision_requires_schema_version(self):
         item = decision()
