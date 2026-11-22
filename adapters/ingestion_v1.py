@@ -175,9 +175,13 @@ def accepted_jsonl_from_current(pointer_path: str | Path) -> Path:
 def iter_current_generation(pointer_path: str | Path, **adapter_options: Any) -> Iterator[dict[str, Any]]:
     """Stream observations from the verified generation named by CURRENT.json."""
     manifest, generation = _verified_current_generation(pointer_path)
+    accepted_entry = manifest["files"]["accepted.jsonl"]
     yield from iter_accepted_jsonl(
         generation / "accepted.jsonl",
         expected_import_id=manifest["generation_id"],
+        expected_digest=accepted_entry["sha256"],
+        expected_size=accepted_entry["size"],
+        expected_count=manifest["accepted_count"],
         **adapter_options,
     )
 
@@ -191,35 +195,62 @@ def iter_accepted_jsonl(
     media_type: str = "text/plain",
     language: str | None = None,
     expected_import_id: str | None = None,
+    expected_digest: str | None = None,
+    expected_size: int | None = None,
+    expected_count: int | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """Stream an accepted.jsonl generation file; malformed lines fail closed."""
+    """Read, re-verify, then stream a bounded accepted.jsonl file.
 
-    with Path(path).open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, 1):
-            if not line.strip():
-                raise IngestionAdapterError(f"blank line in accepted envelope stream at line {line_number}")
-            try:
-                envelope = json.loads(line, object_pairs_hook=_unique_json_object)
-            except json.JSONDecodeError as exc:
-                raise IngestionAdapterError(
-                    f"invalid JSON in accepted envelope stream at line {line_number}"
-                ) from exc
-            if not isinstance(envelope, Mapping):
-                raise IngestionAdapterError(
-                    f"accepted envelope at line {line_number} must be an object"
-                )
-            if expected_import_id is not None and envelope.get("import_id") != expected_import_id:
-                raise IngestionAdapterError(
-                    f"accepted envelope import_id does not match CURRENT generation at line {line_number}"
-                )
-            yield observation_from_envelope(
-                envelope,
-                source_uri=source_uri,
-                collected_at=collected_at,
-                observed_at=observed_at,
-                media_type=media_type,
-                language=language,
+    Generation-pointer verification happens before this function is called.
+    The second digest/size/count check closes the validation-to-use gap if a
+    generation file changes between pointer validation and conversion.
+    """
+    accepted_path = Path(path)
+    max_bytes = 5 * 1024 * 1024
+    with accepted_path.open("rb") as handle:
+        data = handle.read(max_bytes + 1)
+        if len(data) > max_bytes or handle.read(1):
+            raise IngestionAdapterError("accepted envelope stream exceeds the 5 MiB limit")
+    if expected_size is not None and len(data) != expected_size:
+        raise IngestionAdapterError("accepted envelope stream size changed after CURRENT validation")
+    if expected_digest is not None and hashlib.sha256(data).hexdigest() != expected_digest:
+        raise IngestionAdapterError("accepted envelope stream digest changed after CURRENT validation")
+    if data and not data.endswith(b"\\n"):
+        raise IngestionAdapterError("accepted envelope stream is not newline-terminated")
+    line_count = data.count(b"\\n")
+    if expected_count is not None and line_count != expected_count:
+        raise IngestionAdapterError("accepted envelope stream count changed after CURRENT validation")
+
+    for line_number, raw_line in enumerate(data.splitlines(), 1):
+        if not raw_line.strip():
+            raise IngestionAdapterError(f"blank line in accepted envelope stream at line {line_number}")
+        try:
+            line = raw_line.decode("utf-8")
+            envelope = json.loads(line, object_pairs_hook=_unique_json_object)
+        except UnicodeDecodeError as exc:
+            raise IngestionAdapterError(
+                f"invalid UTF-8 in accepted envelope stream at line {line_number}"
+            ) from exc
+        except json.JSONDecodeError as exc:
+            raise IngestionAdapterError(
+                f"invalid JSON in accepted envelope stream at line {line_number}"
+            ) from exc
+        if not isinstance(envelope, Mapping):
+            raise IngestionAdapterError(
+                f"accepted envelope at line {line_number} must be an object"
             )
+        if expected_import_id is not None and envelope.get("import_id") != expected_import_id:
+            raise IngestionAdapterError(
+                f"accepted envelope import_id does not match CURRENT generation at line {line_number}"
+            )
+        yield observation_from_envelope(
+            envelope,
+            source_uri=source_uri,
+            collected_at=collected_at,
+            observed_at=observed_at,
+            media_type=media_type,
+            language=language,
+        )
 
 
 
@@ -268,9 +299,8 @@ def export_current_generation(
             delete=False,
         ) as handle:
             temporary = Path(handle.name)
-            for observation in iter_accepted_jsonl(
-                accepted_path,
-                expected_import_id=manifest["generation_id"],
+            for observation in iter_current_generation(
+                pointer,
                 source_uri=source_uri,
                 collected_at=collected_at,
                 observed_at=observed_at,
