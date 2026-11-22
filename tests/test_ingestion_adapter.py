@@ -112,6 +112,20 @@ class IngestionAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(IngestionAdapterError, "SHA-256"):
             observation_from_envelope(item, **self.kwargs())
 
+
+    def test_record_representation_scope_must_match_source_format(self):
+        item = envelope()
+        item["record_representation_scope"] = "csv.parsed_row.canonical_json.utf8"
+        with self.assertRaisesRegex(IngestionAdapterError, "scope does not match source_format"):
+            observation_from_envelope(item, **self.kwargs())
+
+    def test_duplicate_json_keys_in_accepted_stream_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "accepted.jsonl"
+            path.write_text('{"decision":"accepted","decision":"quarantine"}\\n', encoding="utf-8")
+            with self.assertRaisesRegex(IngestionAdapterError, "duplicate JSON key"):
+                list(iter_accepted_jsonl(path, **self.kwargs()))
+
     def test_accepted_jsonl_stream_is_converted_incrementally(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "accepted.jsonl"
