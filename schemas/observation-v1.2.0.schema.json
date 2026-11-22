@@ -63,7 +63,8 @@
     "collected_at": {
       "type": "string",
       "format": "date-time",
-      "maxLength": 64
+      "maxLength": 64,
+      "description": "Time the ingestion generation was committed or collection event completed. This is distinct from observed_at, which must represent the source's observation time."
     },
     "content": {
       "type": "object",
@@ -158,7 +159,8 @@
         },
         "source_record": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Source line number reported by the ingestion parser. For a multiline CSV record this is the physical line on which the parsed record ends, not a logical row ordinal."
         },
         "source_format": {
           "enum": [
@@ -199,7 +201,8 @@
         "source_registry_revision": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 256
+          "maxLength": 256,
+          "description": "Immutable version or content digest identifying the source registry used to resolve source URI and media-type policy."
         },
         "policy_revision": {
           "type": "string",
